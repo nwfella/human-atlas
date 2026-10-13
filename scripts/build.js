@@ -35,4 +35,4 @@ if (problems.length) {
 }
 const dest = path.join(root, 'index.html');
 fs.writeFileSync(dest, out);
-console.log('built index.html  ' + out.length + ' bytes  ' + out.split('\n').length + ' lines');
+console.log('built index.html  ' + Buffer.byteLength(out, 'utf8') + ' bytes  ' + out.split('\n').length + ' lines');
