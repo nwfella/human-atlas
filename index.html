@@ -1,0 +1,3295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Human Atlas — interactive anatomy, 5 systems, 100+ parts</title>
+<meta name="description" content="Interactive human anatomy atlas: skeletal, muscular, circulatory, nervous and organ systems. Drag any part, click for detail.">
+<meta name="theme-color" content="#06090e">
+<style>
+/* ============================ theme ============================ */
+:root{
+  --bg:#06090e; --bg2:#0b1118; --bg3:#111923; --bg4:#17222f;
+  --border:#1d2937; --border2:#2a3d52;
+  --text:#e8f0f8; --text2:#9fb2c6; --text3:#64809b;
+  --accent:#39d0ff; --accent-dim:rgba(57,208,255,.13);
+  --ok:#35d07f; --bad:#ff5c5c; --warn:#ffc857;
+  --radius:10px; --radius-sm:7px;
+  --font:'Segoe UI',Inter,system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,'Cascadia Mono','SF Mono',Consolas,monospace;
+  color-scheme:dark;
+  /* skeletal */
+  --sk:#e6e1d2; --sk-ed:#948a75;
+  /* muscular */
+  --mu:#a8413a; --mu-ed:#6b241e;
+  /* vessels */
+  --ar:#c8443c; --ar-ed:#8a241f; --ve:#3b6fae; --ve-ed:#224a7a;
+  /* nerves */
+  --nv:#e2c163; --nv-ed:#89722a;
+  /* organ palette */
+  --o-liver:#7d3a2c; --o-lung:#bf7a84; --o-heart:#a8322c; --o-kidney:#8b4a3a;
+  --o-gut:#c99a6a; --o-colon:#b3805a; --o-stomach:#b5705e; --o-spleen:#6e3a58;
+  --o-panc:#cbb178; --o-bladder:#c6ad6a; --o-gland:#a8695c; --o-eye:#8fc4e4;
+  --o-brain:#d9a441; --o-tra:#cfe2ec; --o-adre:#c9a04a; --o-gall:#4e7a3e;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;overflow:hidden;
+  -webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(circle at 20% 10%,rgba(57,208,255,.06),transparent 45%),
+                   radial-gradient(circle at 85% 85%,rgba(255,138,90,.05),transparent 45%);}
+button{font-family:inherit;font-size:13px;color:inherit;cursor:pointer}
+input{font-family:inherit}
+.hidden{display:none !important}
+
+/* ============================ topbar ============================ */
+.topbar{position:relative;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  height:54px;padding:0 14px;border-bottom:1px solid var(--border);background:rgba(8,13,19,.92);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand .logo{color:var(--accent);font-size:17px;line-height:1;text-shadow:0 0 14px var(--accent)}
+.brand h1{margin:0;font-size:15px;letter-spacing:.24em;font-weight:600;white-space:nowrap}
+.brand .ver{font-size:10px;color:var(--text3);letter-spacing:.1em;font-family:var(--mono)}
+.brand .sub{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-actions{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tb-btn{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 11px;white-space:nowrap;
+  transition:background .15s,border-color .15s,color .15s}
+.tb-btn:hover{background:var(--bg4);border-color:var(--border2)}
+.tb-btn.on{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
+.tb-btn.primary{background:var(--accent-dim);border-color:rgba(57,208,255,.5);color:var(--accent);font-weight:600}
+.tb-btn.primary:hover{background:rgba(57,208,255,.22)}
+.mob-only{display:none}
+
+/* ============================ layout ============================ */
+main{position:relative;z-index:10;display:grid;grid-template-columns:266px minmax(0,1fr) 344px;height:calc(100vh - 54px)}
+aside{background:var(--bg2);min-width:0;display:flex;flex-direction:column}
+#sidebar{border-right:1px solid var(--border)}
+#detail{border-left:1px solid var(--border)}
+.pane-head{padding:12px 14px 8px;font-size:10.5px;letter-spacing:.18em;color:var(--text3);text-transform:uppercase;
+  display:flex;justify-content:space-between;align-items:center;flex:none}
+.pane-body{overflow-y:auto;overflow-x:hidden;padding:0 12px 22px;flex:1;scrollbar-width:thin}
+.pane-body::-webkit-scrollbar{width:9px}
+.pane-body::-webkit-scrollbar-thumb{background:#22303f;border-radius:6px;border:2px solid var(--bg2)}
+.pane-body::-webkit-scrollbar-track{background:transparent}
+
+/* ============================ system rows ============================ */
+.sys-row{padding:9px 10px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:7px;background:var(--bg3);
+  transition:border-color .15s}
+.sys-row.off{opacity:.45}
+.sys-top{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.sys-dot{width:11px;height:11px;border-radius:3px;flex:none;box-shadow:0 0 9px currentColor}
+.sys-name{flex:1;font-size:13px;font-weight:600;letter-spacing:.02em;min-width:0}
+.sys-count{font-family:var(--mono);font-size:10.5px;color:var(--text3);background:var(--bg);padding:2px 6px;border-radius:20px;
+  border:1px solid var(--border);flex:none}
+.sys-eye{font-size:11px;color:var(--text3);width:16px;text-align:center;flex:none}
+.sys-desc{font-size:11px;color:var(--text3);margin:5px 0 0;line-height:1.45}
+.sys-slider{display:flex;align-items:center;gap:8px;margin-top:8px}
+.sys-slider label{font-size:10px;color:var(--text3);font-family:var(--mono);width:26px;flex:none}
+.sys-slider input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:3px;background:var(--border2);border-radius:2px;outline:none}
+.sys-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--accent);cursor:pointer;border:2px solid var(--bg2)}
+.sys-slider input[type=range]::-moz-range-thumb{width:11px;height:11px;border:2px solid var(--bg2);border-radius:50%;background:var(--accent);cursor:pointer}
+
+/* ============================ search + regions ============================ */
+.search-wrap{position:relative;margin:4px 0 10px}
+.search-wrap input{width:100%;padding:9px 10px 9px 30px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);font-size:13px;outline:none}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-wrap .ico{position:absolute;left:10px;top:9px;color:var(--text3);font-size:12px;pointer-events:none}
+#results{margin:-4px 0 10px;max-height:230px;overflow-y:auto}
+.res{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px}
+.res:hover{background:var(--bg3)}
+.res .rd{width:8px;height:8px;border-radius:2px;flex:none}
+.res .rs{font-size:10px;color:var(--text3);font-family:var(--mono);flex:none}
+.res-none{font-size:11.5px;color:var(--text3);padding:6px 8px}
+.region-head{margin:10px 0 4px;font-size:10px;letter-spacing:.16em;color:var(--text3);text-transform:uppercase}
+.region-list{display:flex;flex-wrap:wrap;gap:4px}
+.region-chip{font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:20px;background:var(--bg3);color:var(--text2)}
+.region-chip:hover{border-color:var(--accent);color:var(--accent)}
+.side-note{font-size:11px;color:var(--text3);line-height:1.5;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--border)}
+.side-note b{color:var(--text2);font-weight:600}
+
+/* ============================ stage ============================ */
+#stage{position:relative;background:
+  linear-gradient(rgba(10,16,24,.96),rgba(6,9,14,.98)),
+  repeating-linear-gradient(0deg,transparent 0 39px,rgba(57,208,255,.05) 39px 40px),
+  repeating-linear-gradient(90deg,transparent 0 39px,rgba(57,208,255,.05) 39px 40px);
+  overflow:hidden;touch-action:none}
+#atlas{display:block;width:100%;height:100%;cursor:grab}
+#atlas.grabbing{cursor:grabbing}
+#atlas.dragging .part{cursor:grabbing}
+.part{cursor:grab;transition:opacity .18s}
+.part path{pointer-events:none}
+.part path.hit{pointer-events:all;fill:none;stroke:none;stroke-width:17;stroke-linejoin:round;stroke-linecap:round}
+.part.hl path:not(.hit){filter:brightness(1.42) saturate(1.1)}
+.part.sel path:not(.hit):not(.r-line):not(.r-skin){fill:var(--hl);fill-opacity:.94;stroke:rgba(255,255,255,.5);stroke-width:1.3}
+.part.sel path.r-line{stroke:var(--hl);opacity:1;stroke-width:1.5}
+.part.sel path.r-skin{stroke:var(--hl);fill:var(--hl);fill-opacity:.12}
+.part.sel{filter:drop-shadow(0 0 7px var(--hl))}
+.part.dimmed{opacity:.16}
+.part.ok path:not(.hit):not(.r-line){fill:var(--ok) !important;animation:pulse .5s ease-out 2}
+.part.bad path:not(.hit):not(.r-line){fill:var(--bad) !important;animation:shake .3s ease-in-out 2}
+.part.missed path:not(.hit):not(.r-line){fill:var(--warn) !important;animation:pulse .5s ease-out 2}
+@keyframes pulse{0%,100%{filter:none}50%{filter:brightness(1.9)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+.r-bone{fill:var(--sk);stroke:var(--sk-ed);stroke-width:1}
+.r-cartilage{fill:#cfe6ef;stroke:#8ba6b6;stroke-width:.8}
+.r-cavity{fill:#070c12;stroke:var(--sk-ed);stroke-width:.8}
+.r-line{fill:none;stroke:var(--sk-ed);stroke-width:1;opacity:.75}
+.r-skin{fill:rgba(96,140,180,.07);stroke:rgba(126,186,232,.34);stroke-width:1.2}
+.r-muscle{fill:var(--mu);stroke:var(--mu-ed);stroke-width:.8}
+.r-muscle2{fill:#8c3a34;stroke:#5e211c;stroke-width:.8}
+.r-tendon{fill:#d3c6af;stroke:#9d8d74;stroke-width:.6}
+.r-artery{fill:var(--ar);stroke:var(--ar-ed);stroke-width:.7}
+.r-vein{fill:var(--ve);stroke:var(--ve-ed);stroke-width:.7}
+.r-nerve{fill:var(--nv);stroke:var(--nv-ed);stroke-width:.6}
+.r-brain{fill:var(--o-brain);stroke:#8d6a1f;stroke-width:.7}
+.r-liver{fill:var(--o-liver);stroke:#4e2219;stroke-width:.8}
+.r-lung{fill:var(--o-lung);stroke:#7d434c;stroke-width:.8}
+.r-heart{fill:var(--o-heart);stroke:#6d1c17;stroke-width:.8}
+.r-kidney{fill:var(--o-kidney);stroke:#57291e;stroke-width:.8}
+.r-gut{fill:var(--o-gut);stroke:#8a6440;stroke-width:.7}
+.r-colon{fill:var(--o-colon);stroke:#7a5436;stroke-width:.7}
+.r-stomach{fill:var(--o-stomach);stroke:#7a4437;stroke-width:.8}
+.r-spleen{fill:var(--o-spleen);stroke:#431f36;stroke-width:.8}
+.r-panc{fill:var(--o-panc);stroke:#8a7444;stroke-width:.7}
+.r-bladder{fill:var(--o-bladder);stroke:#87703a;stroke-width:.8}
+.r-gland{fill:var(--o-gland);stroke:#6b3c31;stroke-width:.8}
+.r-eye{fill:var(--o-eye);stroke:#4c7f9c;stroke-width:.8}
+.r-tra{fill:var(--o-tra);stroke:#8fa9b8;stroke-width:.7}
+.r-adre{fill:var(--o-adre);stroke:#8a6a24;stroke-width:.7}
+.r-gall{fill:var(--o-gall);stroke:#2f4a24;stroke-width:.7}
+.r-void{fill:#0a0f16;stroke:none}
+
+/* labels */
+.leader{stroke:var(--accent);stroke-width:.9;fill:none;opacity:.85}
+.lbl{fill:var(--text);font-family:var(--mono);font-size:9.5px;letter-spacing:.02em;paint-order:stroke;
+  stroke:rgba(4,8,12,.9);stroke-width:3.4;stroke-linejoin:round}
+.lbl-sub{fill:var(--text3);font-family:var(--mono);font-size:7.6px;paint-order:stroke;stroke:rgba(4,8,12,.9);stroke-width:3}
+
+/* tooltip */
+#tooltip{position:absolute;pointer-events:none;z-index:30;padding:5px 9px;border-radius:var(--radius-sm);
+  background:rgba(9,15,22,.95);border:1px solid var(--border2);font-size:12px;white-space:nowrap;
+  box-shadow:0 6px 22px rgba(0,0,0,.5);opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s}
+#tooltip.on{opacity:1;transform:translateY(0)}
+#tooltip .tt-sys{font-size:9.5px;color:var(--text3);font-family:var(--mono);letter-spacing:.08em;display:block}
+
+/* hud + zoom */
+#hud{position:absolute;left:14px;bottom:12px;z-index:12;font-size:11px;color:var(--text3);font-family:var(--mono);
+  display:flex;gap:14px;flex-wrap:wrap;pointer-events:none;max-width:60%}
+#hud b{color:var(--text2);font-weight:600}
+#zoomCtl{position:absolute;right:12px;bottom:12px;z-index:12;display:flex;flex-direction:column;gap:5px}
+#zoomCtl button{width:32px;height:32px;border-radius:var(--radius-sm);background:rgba(13,20,28,.9);border:1px solid var(--border);
+  font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center}
+#zoomCtl button:hover{border-color:var(--accent);color:var(--accent)}
+#legend{position:absolute;left:14px;top:12px;z-index:12;display:flex;gap:12px;flex-wrap:wrap;background:rgba(8,13,19,.72);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:10.5px;color:var(--text2);
+  font-family:var(--mono);backdrop-filter:blur(6px);max-width:calc(100% - 28px)}
+#legend span{display:flex;align-items:center;gap:5px}
+#legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* quiz */
+#quizbar{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:14;display:flex;align-items:center;gap:14px;
+  background:rgba(9,15,22,.95);border:1px solid var(--border2);border-radius:28px;padding:9px 16px;
+  box-shadow:0 10px 34px rgba(0,0,0,.55);max-width:calc(100% - 24px)}
+#quizbar .q-prompt{font-size:13px}
+#quizbar .q-prompt b{color:var(--accent)}
+#quizbar .q-score{font-family:var(--mono);font-size:12px;color:var(--text2);white-space:nowrap}
+#quizbar .q-feed{font-size:12px;font-family:var(--mono);white-space:nowrap;min-width:74px}
+#quizbar .q-feed.ok{color:var(--ok)}
+#quizbar .q-feed.bad{color:var(--bad)}
+#quizbar button{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 11px;font-size:12px}
+
+/* ============================ detail pane ============================ */
+#detail .empty{padding:26px 18px;color:var(--text3);font-size:12.5px;line-height:1.6}
+#detail .empty h3{margin:0 0 10px;font-size:13px;color:var(--text2);letter-spacing:.14em}
+#detail .empty ul{margin:10px 0 0;padding-left:18px}
+#detail .empty li{margin-bottom:7px}
+.d-head{padding:14px 16px 12px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.d-head::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--hl)}
+.d-sys{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);font-family:var(--mono)}
+.d-name{margin:6px 0 3px;font-size:20px;line-height:1.15;font-weight:600}
+.d-latin{font-size:12px;color:var(--text2);font-style:italic}
+.d-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.d-tag{font-size:10px;font-family:var(--mono);padding:3px 7px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);
+  color:var(--text2)}
+.d-tag.hl{color:var(--bg);background:var(--hl);border-color:var(--hl);font-weight:600}
+.d-actions{display:flex;gap:6px;margin-top:12px}
+.d-actions button{flex:1;padding:8px;border-radius:var(--radius-sm);background:var(--bg3);border:1px solid var(--border);font-size:12px}
+.d-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.d-body{padding:14px 16px 24px;overflow-y:auto;flex:1;scrollbar-width:thin}
+.d-sec{margin-bottom:18px}
+.d-sec h4{margin:0 0 7px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3)}
+.d-sec p{margin:0;font-size:13.5px;line-height:1.62;color:#cfe0ee}
+.d-facts{margin:0;padding:0;list-style:none}
+.d-facts li{position:relative;padding-left:16px;margin-bottom:8px;font-size:12.8px;line-height:1.55;color:var(--text2)}
+.d-facts li::before{content:'';position:absolute;left:2px;top:6px;width:5px;height:5px;border-radius:50%;background:var(--hl)}
+.d-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.d-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px}
+.d-stat .k{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+.d-stat .v{font-size:13px;font-family:var(--mono);margin-top:3px;color:var(--text)}
+.d-conn{display:flex;flex-wrap:wrap;gap:5px}
+.d-conn button{font-size:11.5px;padding:4px 9px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.d-conn button:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ============================ tour + toast ============================ */
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);z-index:60;padding:10px 18px;border-radius:24px;
+  background:rgba(10,16,23,.97);border:1px solid var(--border2);font-size:13px;opacity:0;transition:opacity .2s,transform .2s;
+  pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ============================ responsive ============================ */
+@media(max-width:1240px){
+  main{grid-template-columns:242px minmax(0,1fr)}
+  #detail{position:fixed;right:0;top:54px;bottom:0;width:min(360px,92vw);z-index:40;transform:translateX(103%);
+    transition:transform .26s cubic-bezier(.4,0,.2,1);box-shadow:-14px 0 40px rgba(0,0,0,.5)}
+  #detail.open{transform:none}
+  .mob-only{display:inline-flex}
+}
+@media(max-width:760px){
+  main{grid-template-columns:minmax(0,1fr)}
+  #sidebar{position:fixed;left:0;top:54px;bottom:0;width:min(286px,88vw);z-index:40;transform:translateX(-104%);
+    transition:transform .26s cubic-bezier(.4,0,.2,1);box-shadow:14px 0 40px rgba(0,0,0,.5)}
+  #sidebar.open{transform:none}
+  .brand .sub{display:none}
+  .brand h1{font-size:13px;letter-spacing:.16em}
+  #legend{font-size:9.5px;gap:8px;padding:5px 8px}
+  #hud{display:none}
+  .tb-btn{padding:7px 9px;font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">&#9670;</span>
+    <h1>HUMAN ATLAS</h1>
+    <span class="ver" id="verTag">v1.0</span>
+    <span class="sub">&middot; drag any part &middot; click for detail</span>
+  </div>
+  <div class="top-actions">
+    <button id="btnSide" class="tb-btn mob-only" aria-expanded="false">Systems</button>
+    <button id="btnExplode" class="tb-btn">Explode</button>
+    <button id="btnReset" class="tb-btn">Reset parts</button>
+    <button id="btnXray" class="tb-btn">X-ray</button>
+    <button id="btnSkin" class="tb-btn on">Outline</button>
+    <button id="btnQuiz" class="tb-btn primary">Quiz mode</button>
+    <button id="btnInfo" class="tb-btn mob-only" aria-expanded="false">Info</button>
+  </div>
+</header>
+
+<main>
+  <aside id="sidebar">
+    <div class="pane-head"><span>Systems</span><span id="totTag">0 parts</span></div>
+    <div class="pane-body">
+      <div id="sysList"></div>
+      <div class="search-wrap">
+        <span class="ico">&#9906;</span>
+        <input id="search" type="search" placeholder="Search 130+ structures&hellip;" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="results"></div>
+      <div class="region-head">Browse by region</div>
+      <div class="region-list" id="regionList"></div>
+      <p class="side-note">
+        <b>Drag</b> any structure to pull it out of the body &middot; <b>Click</b> it for full detail &middot;
+        <b>Scroll</b> to zoom, drag empty space to pan &middot; <b>Shift-click</b> to hide everything but that system.<br><br>
+        Structures are stacked, so one spot can hold several: <b>click the same place again</b> to walk down
+        to the organ underneath the muscle and bone over it.<br><br>
+        Lateral labels are the <b>patient's</b> side: the figure's left of screen is the patient's right.
+      </p>
+    </div>
+  </aside>
+
+  <section id="stage">
+    <div id="legend"></div>
+    <svg id="atlas" viewBox="0 0 360 1000" preserveAspectRatio="xMidYMid meet" role="img"
+         aria-label="Interactive human anatomy figure"></svg>
+    <div id="tooltip"></div>
+    <div id="quizbar" class="hidden">
+      <span class="q-score" id="qScore">0 / 0</span>
+      <span class="q-prompt" id="qPrompt">Find the <b>&mdash;</b></span>
+      <span class="q-feed" id="qFeed"></span>
+      <button id="qSkip">Skip</button>
+      <button id="qStop">Exit</button>
+    </div>
+    <div id="hud"></div>
+    <div id="zoomCtl">
+      <button id="zIn" title="Zoom in">+</button>
+      <button id="zOut" title="Zoom out">&minus;</button>
+      <button id="zFit" title="Fit">&#9633;</button>
+    </div>
+  </section>
+
+  <aside id="detail">
+    <div class="pane-head"><span id="dPaneTitle">Structure</span><span id="dIdx" class="ver"></span></div>
+    <div class="empty" id="dEmpty">
+      <h3>SELECT A STRUCTURE</h3>
+      Click any bone, muscle, vessel, nerve or organ in the figure to open its record: function, key facts and
+      measured figures.
+      <ul>
+        <li><b>Drag</b> a part to isolate it from the anatomy around it &mdash; the classic exploded view.</li>
+        <li><b>Explode</b> pulls every part of the figure away from the midline at once.</li>
+        <li><b>Quiz mode</b> tests you: it names a structure, you click it on the figure.</li>
+        <li><b>X-ray</b> makes bones translucent so vessels and nerves inside them read through.</li>
+      </ul>
+    </div>
+    <div class="d-body hidden" id="dBody"></div>
+  </aside>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* CORE-START */
+/* =============================================================================
+   HUMAN ATLAS — pure core. No document, no window, no fetch, no canvas.
+   scripts/verify_app.js lifts this block out and runs it in Node.
+   Anatomy is generated parametrically so every structure is a real path,
+   labelled with its own record: name, Latin, system, region, function, facts.
+   ========================================================================== */
+var Atlas = (function () {
+  'use strict';
+
+  /* ---------------------------------------------------------------- geometry */
+  var VIEW = { w: 400, h: 1000 };
+  var CX = 200;                        // body midline
+
+  function n1(v) { return Math.round(v * 10) / 10; }
+  function f2(v) { return '' + n1(v); }
+  function p2(p) { return f2(p[0]) + ',' + f2(p[1]); }
+  function P(x, y) { return [n1(x), n1(y)]; }
+
+  /* quadratic midpoint smoothing through a point list -> smooth polyline */
+  function smooth(pts) {
+    if (!pts || pts.length < 2) return '';
+    var d = 'M' + p2(pts[0]);
+    for (var i = 1; i < pts.length - 1; i++) {
+      var mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+      d += 'Q' + p2(pts[i]) + ' ' + f2(mx) + ',' + f2(my);
+    }
+    return d + 'L' + p2(pts[pts.length - 1]);
+  }
+
+  /* closed, tapered tube along a polyline: bones, muscle bellies, vessels, nerves */
+  function tube(pts, widths) {
+    if (typeof widths === 'number') { var w0 = widths; widths = pts.map(function () { return w0; }); }
+    var L = [], R = [], i;
+    for (i = 0; i < pts.length; i++) {
+      var p = pts[i], w = (widths[i] === undefined ? widths[widths.length - 1] : widths[i]) / 2;
+      var a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var nx = -dy / len, ny = dx / len;
+      L.push([p[0] + nx * w, p[1] + ny * w]);
+      R.push([p[0] - nx * w, p[1] - ny * w]);
+    }
+    var d = smooth(L) + 'L' + p2(R[R.length - 1]);
+    if (R.length > 2) d += smooth(R.slice(0, -1).reverse()).replace(/^M/, 'L') + 'L' + p2(L[0]);
+    else d += 'L' + p2(L[0]);
+    return d + 'Z';
+  }
+
+  /* ellipse as a cubic path (rot in degrees) */
+  function ell(cx, cy, rx, ry, rot) {
+    var k = 0.5523, a = (rot || 0) * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+    function T(x, y) { return f2(cx + x * ca - y * sa) + ',' + f2(cy + x * sa + y * ca); }
+    return 'M' + T(rx, 0) +
+      'C' + T(rx, k * ry) + ' ' + T(k * rx, ry) + ' ' + T(0, ry) +
+      'C' + T(-k * rx, ry) + ' ' + T(-rx, k * ry) + ' ' + T(-rx, 0) +
+      'C' + T(-rx, -k * ry) + ' ' + T(-k * rx, -ry) + ' ' + T(0, -ry) +
+      'C' + T(k * rx, -ry) + ' ' + T(rx, -k * ry) + ' ' + T(rx, 0) + 'Z';
+  }
+
+  function rrect(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    return 'M' + p2([x + r, y]) + 'L' + p2([x + w - r, y]) + 'Q' + p2([x + w, y]) + ' ' + p2([x + w, y + r]) +
+      'L' + p2([x + w, y + h - r]) + 'Q' + p2([x + w, y + h]) + ' ' + p2([x + w - r, y + h]) +
+      'L' + p2([x + r, y + h]) + 'Q' + p2([x, y + h]) + ' ' + p2([x, y + h - r]) +
+      'L' + p2([x, y + r]) + 'Q' + p2([x, y]) + ' ' + p2([x + r, y]) + 'Z';
+  }
+
+  function poly(pts, open) {
+    var d = 'M' + p2(pts[0]);
+    for (var i = 1; i < pts.length; i++) d += 'L' + p2(pts[i]);
+    return open ? d : d + 'Z';
+  }
+
+  /* sided helpers: side = +1 -> patient's LEFT (screen right), -1 -> patient's RIGHT */
+  function spa(s, dx, y) { return P(CX + s * dx, y); }
+  function tubeS(s, spec) {
+    return tube(spec.map(function (q) { return spa(s, q[0], q[1]); }), spec.map(function (q) { return q[2]; }));
+  }
+  function smoothS(s, spec) { return smooth(spec.map(function (q) { return spa(s, q[0], q[1]); })); }
+  function ellS(s, dx, y, rx, ry, rot) { return ell(CX + s * dx, y, rx, ry, rot); }
+  function rrectS(s, dx, y, w, h, r) { return rrect(CX + s * dx - w / 2, y, w, h, r); }
+
+  function sh(d, r, extra) {
+    var o = { d: d, r: r };
+    if (extra) for (var k in extra) o[k] = extra[k];
+    return o;
+  }
+
+  /* --------------------------------------------------------------- catalogue */
+  var SYSTEMS = [
+    { id: 'skeletal', name: 'Skeletal', short: 'Bones', color: '#e6e1d2', hl: '#ffd76a',
+      desc: '206 bones: the framework that supports the body, shields the organs and levers every movement.' },
+    { id: 'muscular', name: 'Muscular', short: 'Muscles', color: '#a8413a', hl: '#ff8f6a',
+      desc: 'Over 600 muscles pull on bone to move, hold posture and generate most of the body heat.' },
+    { id: 'circulatory', name: 'Circulatory', short: 'Vessels', color: '#3b6fae', hl: '#5eb2ff',
+      desc: 'Heart, arteries and veins: ~100,000 km of vessels moving five litres of blood every minute.' },
+    { id: 'nervous', name: 'Nervous', short: 'Nerves', color: '#e2c163', hl: '#ffe066',
+      desc: 'Brain, spinal cord and nerves: 86 billion neurons of electrical control and sensation.' },
+    { id: 'organs', name: 'Organs', short: 'Organs', color: '#bf7a84', hl: '#7ef0c0',
+      desc: 'Thoracic and abdominal viscera: oxygen, digestion, filtration, detoxification, reproduction.' }
+  ];
+  /* paint order: viscera deepest, then the skeleton over them, vessels and
+     nerves next, superficial muscle last */
+  var RENDER_ORDER = ['organs', 'skeletal', 'circulatory', 'nervous', 'muscular'];
+  var REGIONS = ['Head & neck', 'Thorax', 'Back & spine', 'Abdomen', 'Pelvis & hip', 'Upper limb', 'Lower limb'];
+
+  var PARTS = [];
+  var INFO = {};
+  function part(o) { PARTS.push(o); return o; }
+  function setInfo(map) { for (var k in map) INFO[k] = map[k]; }
+  /* record helpers used by the info fragments */
+  function one(id, r) { var m = {}; m[id] = r; setInfo(m); }
+  function pair(base, r) { one(base + '-left', r); one(base + '-right', r); }
+  function sysDef(id) { for (var i = 0; i < SYSTEMS.length; i++) if (SYSTEMS[i].id === id) return SYSTEMS[i]; return null; }
+  function colorOf(id) { var s = sysDef(id); return s ? s.color : '#8fa'; }
+  function hlOf(id) { var s = sysDef(id); return s ? s.hl : '#fff'; }
+
+  /* -------------------------------------------------------------- svg output */
+  function shapeSvg(s) {
+    var a = 'd="' + s.d + '" class="r-' + s.r + '"';
+    if (s.sw) a += ' stroke-width="' + s.sw + '"';
+    if (s.dash) a += ' stroke-dasharray="' + s.dash + '"';
+    if (s.op != null) a += ' opacity="' + s.op + '"';
+    return '<path ' + a + '/>';
+  }
+  /* each shape ships twice: the painted path, plus a fat invisible hit path so
+     a 3px-wide nerve is still an easy click target */
+  function body(p, st) {
+    var out = [], j;
+    for (j = 0; j < p.shapes.length; j++) out.push(shapeSvg(p.shapes[j]));
+    for (j = 0; j < p.shapes.length; j++) out.push('<path class="r-hit hit" d="' + p.shapes[j].d + '"/>');
+    return out.join('');
+  }
+
+  function skinSvg() {
+    /* right-hand half of the body outline, offset from the midline (dx, y) */
+    var R = [
+      [0, 15], [18, 20], [34, 44], [38, 72], [30, 100], [17, 118],
+      [23, 130], [25, 152], [38, 164], [54, 171], [70, 179], [82, 188],
+      [90, 215], [97, 255], [101, 300], [104, 345], [106, 395], [107, 440], [107, 486],
+      [111, 505], [116, 540], [114, 566], [106, 578],
+      [96, 560], [92, 520], [88, 486],
+      [84, 440], [78, 395], [72, 350], [66, 310], [60, 300], [54, 296],
+      [52, 318], [48, 356], [43, 382], [49, 404], [59, 438], [62, 462],
+      [65, 510], [66, 570], [61, 620], [55, 662], [58, 700], [56, 765], [48, 820], [45, 858],
+      [50, 890], [52, 918], [24, 926], [19, 892], [20, 866],
+      [16, 800], [13, 720], [11, 662], [10, 600], [9, 545], [12, 500]
+    ];
+    var pts = R.map(function (q) { return [CX + q[0], q[1]]; });
+    var mir = pts.slice(0, -1).map(function (q) { return [2 * CX - q[0], q[1]]; }).reverse();
+    return sh(smooth(pts.concat(mir)) + 'Z', 'skin');
+  }
+
+  function svgBody(st) {
+    var out = [], i, k;
+    if (st.skin) out.push('<g class="layer skin-layer" opacity="1">' + shapeSvg(skinSvg()) + '</g>');
+    for (k = 0; k < RENDER_ORDER.length; k++) {
+      var sys = RENDER_ORDER[k];
+      if (!st.on[sys] || (st.iso && st.iso !== sys)) continue;
+      var op = (st.iso && st.iso !== sys) ? 0 : st.opacity[sys];
+      out.push('<g class="layer sys-' + sys + '" data-sys="' + sys + '" opacity="' + op + '" style="--hl:' + hlOf(sys) + '">');
+      for (i = 0; i < PARTS.length; i++) {
+        var p = PARTS[i];
+        if (p.sys !== sys) continue;
+        var off = st.off[p.id] || [0, 0];
+        var cls = 'part' + (st.sel === p.id ? ' sel' : '') + (st.hl === p.id ? ' hl' : '') +
+          (off[0] || off[1] ? ' moved' : '') + (st.xray && p.sys === 'skeletal' ? ' xray' : '');
+        out.push('<g class="' + cls + '" data-id="' + p.id + '" data-name="' + String(p.name).replace(/"/g, '&quot;') +
+          '" transform="translate(' + off[0] + ',' + off[1] + ')" style="--hl:' + hlOf(sys) + '">' + body(p, st) + '</g>');
+      }
+      out.push('</g>');
+    }
+    return out.join('');
+  }
+
+  /* ------------------------------------------------------------------ lookups */
+  function all() { return PARTS; }
+  function get(id) { for (var i = 0; i < PARTS.length; i++) if (PARTS[i].id === id) return PARTS[i]; return null; }
+  function infoOf(id) { return INFO[id] || null; }
+  function partsOf(sys) { return PARTS.filter(function (p) { return p.sys === sys; }); }
+  function systemsOf() { return SYSTEMS.slice(); }
+
+  function search(q) {
+    q = String(q || '').trim().toLowerCase();
+    if (!q) return [];
+    var hits = [];
+    for (var i = 0; i < PARTS.length; i++) {
+      var p = PARTS[i], inf = INFO[p.id] || {};
+      var hay = (p.name + ' ' + (p.latin || '') + ' ' + (p.region || '') + ' ' + p.sys + ' ' +
+        (inf.aka || '') + ' ' + (inf.fn || '')).toLowerCase();
+      var name = p.name.toLowerCase(), score = -1;
+      if (name.indexOf(q) === 0) score = 0;
+      else if (name.indexOf(q) > 0 || name.indexOf(' ' + q) > -1) score = 1;
+      else if (hay.indexOf(q) > -1) score = 2;
+      if (score > -1) hits.push({ p: p, s: score });
+    }
+    hits.sort(function (a, b) {
+      return a.s - b.s || a.p.name.length - b.p.name.length || (a.p.name < b.p.name ? -1 : 1);
+    });
+    return hits.slice(0, 24).map(function (h) { return h.p; });
+  }
+
+  /* bounding box from path data (all commands are absolute, coords in pairs) */
+  function bbox(p) {
+    var minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9, any = false;
+    for (var i = 0; i < p.shapes.length; i++) {
+      var nums = p.shapes[i].d.match(/-?\d+(\.\d+)?/g) || [];
+      for (var j = 0; j + 1 < nums.length; j += 2) {
+        var x = +nums[j], y = +nums[j + 1];
+        if (x < minx) minx = x; if (x > maxx) maxx = x;
+        if (y < miny) miny = y; if (y > maxy) maxy = y;
+        any = true;
+      }
+    }
+    return any ? { x: minx, y: miny, w: maxx - minx, h: maxy - miny, cx: (minx + maxx) / 2, cy: (miny + maxy) / 2 } : null;
+  }
+
+  /* ------------------------------------------------------------------- state */
+  function defaultState() {
+    var on = {}, op = {};
+    SYSTEMS.forEach(function (s) { on[s.id] = true; op[s.id] = s.id === 'muscular' ? 0.5 : (s.id === 'circulatory' ? 0.9 : 1); });
+    return {
+      on: on, opacity: op, skin: true, xray: false,
+      sel: null, hl: null, off: {}, exploded: false, iso: null,
+      labels: true, hits: 0,
+      quiz: { active: false, score: 0, asked: 0, streak: 0, best: 0, target: null, recent: [], state: '' }
+    };
+  }
+  function clone(x) { return JSON.parse(JSON.stringify(x)); }
+
+  /* Explode = unfold, not blow apart. Each structure moves radially away from
+     the body centre by an amount scaled to its system, so viscera stay near the
+     midline while the skeleton and muscle shells step outward and the figure
+     stays readable. */
+  function explodeOffsets(amount) {
+    var c = { x: CX, y: 470 }, off = {};
+    var factor = { skeletal: 1.0, muscular: 1.25, circulatory: 0.7, nervous: 0.6, organs: 0.42 };
+    PARTS.forEach(function (p) {
+      var b = bbox(p); if (!b) return;
+      var dx = b.cx - c.x, dy = b.cy - c.y, L = Math.sqrt(dx * dx + dy * dy) || 1;
+      var k = amount * (factor[p.sys] || 1) * (0.84 + 0.32 * ((p.id.length % 7) / 7));
+      off[p.id] = [n1(dx / L * k), n1(dy / L * k)];
+    });
+    return off;
+  }
+
+  function quizTarget(st) {
+    var pool = PARTS.filter(function (p) {
+      return st.on[p.sys] && st.quiz.recent.indexOf(p.id) === -1 && (INFO[p.id] || p.sys !== 'muscular');
+    });
+    if (!pool.length) pool = PARTS.filter(function (p) { return st.on[p.sys]; });
+    if (!pool.length) return null;
+    var seed = (st.quiz.asked * 2654435761 + st.quiz.score * 40503 + st.hits * 97) % pool.length;
+    return pool[seed].id;
+  }
+
+  function stats() {
+    var per = {}, shapes = 0;
+    SYSTEMS.forEach(function (s) { per[s.id] = 0; });
+    PARTS.forEach(function (p) { per[p.sys] = (per[p.sys] || 0) + 1; shapes += p.shapes.length * 2; });
+    return { total: PARTS.length, per: per, shapes: shapes, withInfo: Object.keys(INFO).length };
+  }
+
+  function validate() {
+    var bad = [], ids = {}, i;
+    for (i = 0; i < PARTS.length; i++) {
+      var p = PARTS[i];
+      if (ids[p.id]) bad.push('duplicate id: ' + p.id); else ids[p.id] = 1;
+      if (!p.name) bad.push(p.id + ': no name');
+      if (!p.latin) bad.push(p.id + ': no Latin name');
+      if (!p.region || REGIONS.indexOf(p.region) === -1) bad.push(p.id + ': bad region "' + p.region + '"');
+      if (!sysDef(p.sys)) bad.push(p.id + ': unknown system ' + p.sys);
+      if (!p.shapes || !p.shapes.length) bad.push(p.id + ': no shapes');
+      (p.shapes || []).forEach(function (s, n) {
+        if (!/^M/.test(s.d)) bad.push(p.id + '[' + n + ']: path does not start with M');
+        if (/NaN|undefined|Infinity/.test(s.d)) bad.push(p.id + '[' + n + ']: bad numeric in path');
+        if (!/^[r]?-?[a-z]/.test(s.r) || !s.r) bad.push(p.id + '[' + n + ']: no role');
+      });
+      var inf = INFO[p.id];
+      if (!inf) bad.push(p.id + ': missing INFO record');
+      else {
+        if (!inf.fn || inf.fn.length < 60) bad.push(p.id + ': function text too thin');
+        if (!inf.facts || inf.facts.length < 3) bad.push(p.id + ': needs >= 3 facts');
+        (inf.facts || []).forEach(function (f, n) {
+          if (String(f).length < 25) bad.push(p.id + ': fact ' + n + ' too thin');
+          if (/(lorem|placeholder|TODO|TBD)/i.test(f)) bad.push(p.id + ': placeholder fact ' + n);
+        });
+        if (!inf.stats || inf.stats.length < 2) bad.push(p.id + ': needs >= 2 figures');
+        (inf.stats || []).forEach(function (kv, n) {
+          if (!kv || kv.length !== 2 || !kv[0] || !kv[1]) bad.push(p.id + ': bad figure ' + n);
+        });
+        if (!inf.conn || inf.conn.length < 2) bad.push(p.id + ': needs >= 2 related structures');
+        (inf.conn || []).forEach(function (cid) {
+          if (!get(cid)) bad.push(p.id + ': related structure "' + cid + '" does not exist');
+        });
+      }
+      if (!p.group) bad.push(p.id + ': no group');
+    }
+    for (var k in INFO) if (!ids[k]) bad.push('orphan INFO record: ' + k);
+    SYSTEMS.forEach(function (s) {
+      if (!partsOf(s.id).length) bad.push('system with no parts: ' + s.id);
+    });
+    return bad;
+  }
+
+  var API = {
+    VERSION: '1.0.0', VIEW: VIEW, CX: CX, SYSTEMS: SYSTEMS, RENDER_ORDER: RENDER_ORDER, REGIONS: REGIONS,
+    all: all, get: get, infoOf: infoOf, partsOf: partsOf, systemsOf: systemsOf, search: search,
+    bbox: bbox, svgBody: svgBody, skinSvg: skinSvg, shapeSvg: shapeSvg,
+    defaultState: defaultState, clone: clone, explodeOffsets: explodeOffsets, quizTarget: quizTarget,
+    stats: stats, validate: validate, colorOf: colorOf, hlOf: hlOf,
+    /* primitives re-exported for tests */
+    geom: { smooth: smooth, tube: tube, ell: ell, rrect: rrect, poly: poly, tubeS: tubeS, ellS: ellS, smoothS: smoothS, rrectS: rrectS, spa: spa, sh: sh }
+  };
+
+/* =============================================================================
+   SKELETAL SYSTEM — 47 structures, generated parametrically.
+   Laterality convention: side +1 = patient's LEFT (screen right).
+   Bones are deliberately chunky and joints overlap: an atlas skeleton that
+   reads as disconnected sticks is worse than one that is anatomically coarse.
+   ========================================================================== */
+(function () {
+  var S = 'skeletal';
+  var sides = [[-1, 'right', 'dexter'], [1, 'left', 'sinister']];
+
+  function vert(y, bw, bh, tpw, tph, spin) {
+    var out = [sh(ell(CX, y + bh / 2, bw / 2, bh / 2), 'bone')];
+    if (spin) out.push(sh(ell(CX, y + bh * 0.8, 2.9, bh * 0.3), 'bone'));
+    return out;
+  }
+  /* one rib: sweeps from the spine out, around the chest and forward, ending at
+     the sternum (true ribs) or free in the costal arch (false / floating) */
+  function ribShapes(side, y0, frontDX, frontY, bulgeDX, w, cart) {
+    var pts = [spa(side, 12, y0), spa(side, bulgeDX * 0.45, y0 + 1), spa(side, bulgeDX * 0.86, y0 + 7),
+      spa(side, bulgeDX, y0 + 16), spa(side, bulgeDX - 8, y0 + 26), spa(side, frontDX + 18, frontY - 9), spa(side, frontDX + 13, frontY - 4)];
+    var out = [sh(tube(pts, [w, w * 1.1, w * 1.05, w, w * 0.95, w * 0.9, w * 0.85]), 'bone')];
+    if (cart) out.push(sh(tube([spa(side, frontDX + 18, frontY - 8), spa(side, frontDX, frontY)], [w * 0.86, w * 0.74]), 'cartilage'));
+    return out;
+  }
+  function ribPart(id, name, latin, side, sideName, range, kind) {
+    var shapes = [];
+    range.forEach(function (i) {
+      if (kind === 'true') shapes = shapes.concat(ribShapes(side, 190 + i * 7.8, 13, 198 + i * 11.6, 68 + (i >= 3 ? 4 : 0), i < 2 ? 5.8 : (i < 5 ? 5.4 : 4.8), true));
+      else if (kind === 'false') shapes = shapes.concat(ribShapes(side, 245 + i * 7.6, 26 + i * 2.5, 254 + i * 9, 72, 5 - i * 0.2, true));
+      else shapes = shapes.concat(ribShapes(side, 268 + i * 7, 46 - i * 4, 288 + i * 8, 66 - i * 4, 4.2 - i * 0.2, false));
+    });
+    part({ id: id, name: name, latin: latin, sys: S, region: 'Thorax', group: 'Rib cage (' + sideName + ')', shapes: shapes });
+  }
+
+  /* ------------------------------------------------------------- skull ---- */
+  part({
+    id: 'cranium', name: 'Cranium', latin: 'Neurocranium', sys: S, region: 'Head & neck', group: 'Skull',
+    shapes: [
+      sh('M200,20C224,20 244,40 244,70C244,94 232,106 216,110L184,110C168,106 156,94 156,70C156,40 176,20 200,20Z', 'bone'),
+      sh('M200,22C197,52 198,82 200,108', 'line'),
+      sh('M163,60C182,50 218,50 237,60', 'line'),
+      sh('M176,92C186,96 214,96 224,92', 'line')
+    ]
+  });
+  part({
+    id: 'facial-bones', name: 'Facial bones', latin: 'Ossa faciei', sys: S, region: 'Head & neck', group: 'Skull',
+    shapes: [
+      sh('M171,102C173,94 187,90 200,90C213,90 227,94 229,102C231,116 226,130 212,136L188,136C174,130 169,116 171,102Z', 'bone'),
+      sh(ell(183, 112, 13, 10), 'cavity'), sh(ell(217, 112, 13, 10), 'cavity'),
+      sh(poly([[200, 120], [195, 134], [205, 134]]), 'cavity'),
+      sh('M200,104L200,120', 'line'),
+      sh('M171,102C167,110 169,118 175,124', 'line'),
+      sh('M229,102C233,110 231,118 225,124', 'line'),
+      sh(rrect(185, 135, 4.4, 5.6, 1.5), 'cartilage'), sh(rrect(190.6, 135, 4.4, 5.6, 1.5), 'cartilage'),
+      sh(rrect(196.2, 135, 4.4, 5.6, 1.5), 'cartilage'), sh(rrect(201.8, 135, 4.4, 5.6, 1.5), 'cartilage'),
+      sh(rrect(207.4, 135, 4.4, 5.6, 1.5), 'cartilage')
+    ]
+  });
+  part({
+    id: 'mandible', name: 'Mandible', latin: 'Mandibula', sys: S, region: 'Head & neck', group: 'Skull',
+    shapes: [
+      sh('M172,98L179,124C181,138 190,145 200,145C210,145 219,138 221,124L228,98L219,96L213,122C211,132 206,136 200,136C194,136 189,132 187,122L181,96Z', 'bone'),
+      sh('M182,96L184,122', 'line'), sh('M218,96L216,122', 'line'),
+      sh(rrect(188, 139, 4.2, 5.6, 1.5), 'cartilage'), sh(rrect(193.4, 139, 4.2, 5.6, 1.5), 'cartilage'),
+      sh(rrect(198.8, 139, 4.2, 5.6, 1.5), 'cartilage'), sh(rrect(204.2, 139, 4.2, 5.6, 1.5), 'cartilage')
+    ]
+  });
+  part({
+    id: 'hyoid', name: 'Hyoid bone', latin: 'Os hyoideum', sys: S, region: 'Head & neck', group: 'Skull',
+    shapes: [
+      sh(tube([[179, 152], [187, 159], [200, 161], [213, 159], [221, 152]], [3.8, 4.4, 4.4, 4.4, 3.8]), 'bone')
+    ]
+  });
+
+  /* ------------------------------------------------------------- spine ---- */
+  var cerv = [], thor = [], lumb = [], y;
+  for (y = 0; y < 7; y++) cerv = cerv.concat(vert(126 + y * 7.4, 21, 6, 5.4, 3.4, true));
+  for (y = 0; y < 12; y++) thor = thor.concat(vert(180 + y * 9.6, 23, 8, 7.5, 4.4, true));
+  for (y = 0; y < 5; y++) lumb = lumb.concat(vert(300 + y * 14, 29, 12.5, 10, 6.5, true));
+  part({
+    id: 'cervical-spine', name: 'Cervical spine (C1–C7)', latin: 'Vertebrae cervicales', sys: S, region: 'Back & spine', group: 'Spine',
+    shapes: cerv.concat([sh(tube([[200, 127], [200, 176]], 9), 'bone', { op: 0.45 })])
+  });
+  part({ id: 'thoracic-spine', name: 'Thoracic spine (T1–T12)', latin: 'Vertebrae thoracicae', sys: S, region: 'Back & spine', group: 'Spine', shapes: thor });
+  part({ id: 'lumbar-spine', name: 'Lumbar spine (L1–L5)', latin: 'Vertebrae lumbales', sys: S, region: 'Back & spine', group: 'Spine', shapes: lumb });
+  part({
+    id: 'sacrum', name: 'Sacrum', latin: 'Os sacrum', sys: S, region: 'Pelvis & hip', group: 'Spine',
+    shapes: [
+      sh(poly([[178, 370], [222, 370], [224, 396], [216, 414], [200, 428], [184, 414], [176, 396]]), 'bone'),
+      sh('M181,382L219,382', 'line'), sh('M183,392L217,392', 'line'),
+      sh('M186,402L214,402', 'line'), sh('M190,412L210,412', 'line')
+    ]
+  });
+  part({
+    id: 'coccyx', name: 'Coccyx', latin: 'Os coccygis', sys: S, region: 'Pelvis & hip', group: 'Spine',
+    shapes: [sh('M200,428C206,437 204,446 200,452C196,446 194,437 200,428Z', 'bone')]
+  });
+
+  /* ----------------------------------------------- shoulder girdle ------- */
+  sides.forEach(function (sd) {
+    var s = sd[0];
+    part({
+      id: 'scapula-' + sd[1], name: sd[1][0].toUpperCase() + sd[1].slice(1) + ' scapula', latin: 'Scapula ' + sd[2],
+      sys: S, region: 'Upper limb', group: 'Shoulder girdle',
+      shapes: [
+        sh(smoothS(s, [[30, 186], [52, 179], [74, 190], [84, 212], [78, 240], [58, 250], [38, 238]]) + 'Z', 'bone', { op: 0.82 }),
+        sh(smoothS(s, [[34, 196], [60, 206], [78, 214]]), 'line'),
+        sh(ellS(s, 80, 186, 10, 9), 'bone')
+      ]
+    });
+  });
+  sides.forEach(function (sd) {
+    ribPart('ribs-true-' + sd[1], sd[1][0].toUpperCase() + sd[1].slice(1) + ' ribs 1–7', 'Costae verae ' + sd[2], sd[0], sd[1], [0, 1, 2, 3, 4, 5, 6], 'true');
+  });
+  sides.forEach(function (sd) {
+    ribPart('ribs-false-' + sd[1], sd[1][0].toUpperCase() + sd[1].slice(1) + ' ribs 8–10', 'Costae spuriae ' + sd[2], sd[0], sd[1], [0, 1, 2], 'false');
+  });
+  sides.forEach(function (sd) {
+    ribPart('ribs-floating-' + sd[1], sd[1][0].toUpperCase() + sd[1].slice(1) + ' ribs 11–12', 'Costae fluctuantes ' + sd[2], sd[0], sd[1], [0, 1], 'float');
+  });
+  part({
+    id: 'sternum', name: 'Sternum', latin: 'Sternum', sys: S, region: 'Thorax', group: 'Rib cage',
+    shapes: [
+      sh(rrect(CX - 13, 188, 26, 26, 5), 'bone'),
+      sh(rrect(CX - 8.5, 214, 17, 64, 3.5), 'bone'),
+      sh(poly([[CX - 6, 278], [CX + 6, 278], [CX, 292]]), 'cartilage'),
+      sh('M' + [CX - 13, 194] + 'L' + [CX - 8.5, 199], 'line'),
+      sh('M' + [CX + 13, 194] + 'L' + [CX + 8.5, 199], 'line'),
+      sh('M' + [CX - 7.5, 228] + 'L' + [CX + 7.5, 228], 'line'),
+      sh('M' + [CX - 7.5, 242] + 'L' + [CX + 7.5, 242], 'line'),
+      sh('M' + [CX - 7.5, 256] + 'L' + [CX + 7.5, 256], 'line')
+    ]
+  });
+  sides.forEach(function (sd) {
+    part({
+      id: 'clavicle-' + sd[1], name: sd[1][0].toUpperCase() + sd[1].slice(1) + ' clavicle', latin: 'Clavicula ' + sd[2],
+      sys: S, region: 'Upper limb', group: 'Shoulder girdle',
+      shapes: [sh(tubeS(sd[0], [[9, 195, 6.4], [34, 188, 6.8], [60, 184, 6.2], [80, 187, 5.6]]), 'bone')]
+    });
+  });
+
+  /* ---------------------------------------------------- upper limbs ------ */
+  sides.forEach(function (sd) {
+    var s = sd[0], side = sd[1], lat = sd[2], cap = side[0].toUpperCase() + side.slice(1);
+    part({
+      id: 'humerus-' + side, name: cap + ' humerus', latin: 'Humerus ' + lat, sys: S, region: 'Upper limb', group: 'Arm',
+      shapes: [
+        sh(ellS(s, 80, 184, 15, 15), 'bone'),
+        sh(tubeS(s, [[80, 186, 18], [84, 240, 15], [88, 300, 14], [91, 336, 17]]), 'bone'),
+        sh(ellS(s, 91, 344, 16, 11), 'bone')
+      ]
+    });
+    part({
+      id: 'radius-' + side, name: cap + ' radius', latin: 'Radius ' + lat, sys: S, region: 'Upper limb', group: 'Forearm',
+      shapes: [
+        sh(ellS(s, 93, 352, 9, 9), 'bone'),
+        sh(tubeS(s, [[93, 353, 11], [97, 412, 9], [99, 470, 10]]), 'bone')
+      ]
+    });
+    part({
+      id: 'ulna-' + side, name: cap + ' ulna', latin: 'Ulna ' + lat, sys: S, region: 'Upper limb', group: 'Forearm',
+      shapes: [
+        sh(tubeS(s, [[85, 350, 12], [86, 412, 10], [88, 470, 8]]), 'bone'),
+        sh(ellS(s, 85, 349, 8, 7), 'bone')
+      ]
+    });
+    part({
+      id: 'carpals-' + side, name: cap + ' carpal bones', latin: 'Ossa carpi ' + lat, sys: S, region: 'Upper limb', group: 'Hand',
+      shapes: [
+        sh(ellS(s, 94, 486, 12, 8), 'bone'),
+        sh(ellS(s, 90, 480, 5.5, 5), 'bone'), sh(ellS(s, 100, 480, 5.5, 5), 'bone'),
+        sh(ellS(s, 91, 492, 5.5, 5), 'bone'), sh(ellS(s, 100, 492, 5.5, 5), 'bone')
+      ]
+    });
+    var mets = [], phals = [];
+    var fingerX = [104, 99.5, 95, 90.5], fingerTipY = [566, 572, 562, 550];
+    for (var f = 0; f < 4; f++) {
+      mets.push(sh(tubeS(s, [[95, 494, 6], [fingerX[f], 512, 5.8], [fingerX[f], 521, 5.4]]), 'bone'));
+      phals.push(sh(tubeS(s, [[fingerX[f], 521, 5.4], [fingerX[f] + 0.6, 544, 4.7]]), 'bone'));
+      phals.push(sh(tubeS(s, [[fingerX[f] + 0.6, 544, 4.6], [fingerX[f] + 1, fingerTipY[f] - 10, 3.9]]), 'bone'));
+      phals.push(sh(tubeS(s, [[fingerX[f] + 1, fingerTipY[f] - 10, 3.8], [fingerX[f] + 1.4, fingerTipY[f], 2.8]]), 'bone'));
+    }
+    mets.push(sh(tubeS(s, [[97, 494, 6], [108, 504, 5.6]]), 'bone'));
+    phals.push(sh(tubeS(s, [[108, 504, 5.6], [115, 514, 5]]), 'bone'));
+    phals.push(sh(tubeS(s, [[115, 514, 5], [118, 524, 4]]), 'bone'));
+    part({
+      id: 'metacarpals-' + side, name: cap + ' metacarpals', latin: 'Ossa metacarpi ' + lat, sys: S, region: 'Upper limb', group: 'Hand',
+      shapes: mets
+    });
+    part({
+      id: 'finger-bones-' + side, name: cap + ' finger bones', latin: 'Phalanges manus ' + lat, sys: S, region: 'Upper limb', group: 'Hand',
+      shapes: phals
+    });
+  });
+
+  /* ------------------------------------------------------------ pelvis --- */
+  (function () {
+    var shapes = [];
+    sides.forEach(function (sd) {
+      var s = sd[0];
+      shapes.push(sh(smoothS(s, [[14, 392], [40, 386], [62, 391], [78, 405], [80, 428], [70, 448],
+        [54, 456], [42, 448], [46, 430], [36, 414], [22, 400]]) + 'Z', 'bone'));
+      shapes.push(sh(ellS(s, 38, 460, 14, 14), 'cavity'));
+      shapes.push(sh(tubeS(s, [[40, 462, 11], [36, 478, 9], [30, 488, 9]]), 'bone'));
+      shapes.push(sh(ellS(s, 27, 474, 9, 8), 'cavity'));
+      shapes.push(sh(tubeS(s, [[36, 466, 9], [24, 484, 8], [10, 489, 8]]), 'bone'));
+      shapes.push(sh(rrect(s > 0 ? CX : CX - 9, 484, 9, 11, 3), 'bone'));
+      shapes.push(sh(smoothS(s, [[24, 396], [54, 397], [76, 410]]), 'line'));
+    });
+    part({ id: 'pelvis', name: 'Pelvis (os coxae)', latin: 'Os coxae / Pelvis', sys: S, region: 'Pelvis & hip', group: 'Pelvis', shapes: shapes });
+  })();
+
+  /* ------------------------------------------------------ lower limbs ---- */
+  sides.forEach(function (sd) {
+    var s = sd[0], side = sd[1], lat = sd[2], cap = side[0].toUpperCase() + side.slice(1);
+    part({
+      id: 'femur-' + side, name: cap + ' femur', latin: 'Femur ' + lat, sys: S, region: 'Lower limb', group: 'Thigh',
+      shapes: [
+        sh(ellS(s, 38, 460, 14, 14), 'bone'),
+        sh(tubeS(s, [[38, 462, 15], [42, 500, 15], [43, 560, 14], [40, 620, 16], [37, 652, 18]]), 'bone'),
+        sh(ellS(s, 36, 660, 18, 12), 'bone')
+      ]
+    });
+    part({
+      id: 'patella-' + side, name: cap + ' patella', latin: 'Patella ' + lat, sys: S, region: 'Lower limb', group: 'Knee',
+      shapes: [sh(ellS(s, 37, 672, 8, 10), 'bone')]
+    });
+    part({
+      id: 'tibia-' + side, name: cap + ' tibia', latin: 'Tibia ' + lat, sys: S, region: 'Lower limb', group: 'Lower leg',
+      shapes: [
+        sh(tubeS(s, [[34, 668, 19], [32, 760, 15], [30, 850, 12]]), 'bone'),
+        sh(ellS(s, 27, 860, 9, 9), 'bone')
+      ]
+    });
+    part({
+      id: 'fibula-' + side, name: cap + ' fibula', latin: 'Fibula ' + lat, sys: S, region: 'Lower limb', group: 'Lower leg',
+      shapes: [
+        sh(tubeS(s, [[49, 682, 7], [47, 780, 6], [44, 852, 7]]), 'bone'),
+        sh(ellS(s, 44, 858, 8, 9), 'bone')
+      ]
+    });
+    part({
+      id: 'tarsals-' + side, name: cap + ' tarsal bones', latin: 'Ossa tarsi ' + lat, sys: S, region: 'Lower limb', group: 'Foot',
+      shapes: [
+        sh(ellS(s, 34, 872, 17, 12), 'bone'),
+        sh(ellS(s, 25, 888, 11, 9), 'bone'),
+        sh(ellS(s, 46, 888, 11, 9), 'bone')
+      ]
+    });
+    var mt = [], pt = [], midx = [21, 27, 33, 39, 45], tipY = [922, 918, 914, 909, 903];
+    for (var t = 0; t < 5; t++) {
+      mt.push(sh(tubeS(s, [[midx[t] - 1, 892, t === 0 ? 6.4 : 5.2], [midx[t], 906, t === 0 ? 6 : 4.8]]), 'bone'));
+      pt.push(sh(tubeS(s, [[midx[t], 906, t === 0 ? 5.8 : 4.6], [midx[t] + (5 - t) * 0.4, tipY[t] - 6, t === 0 ? 5.4 : 3.8]]), 'bone'));
+      pt.push(sh(tubeS(s, [[midx[t] + (5 - t) * 0.4, tipY[t] - 6, t === 0 ? 5.2 : 3.6], [midx[t] + (5 - t) * 0.6, tipY[t], t === 0 ? 3.6 : 2.6]]), 'bone'));
+    }
+    part({ id: 'metatarsals-' + side, name: cap + ' metatarsals', latin: 'Ossa metatarsi ' + lat, sys: S, region: 'Lower limb', group: 'Foot', shapes: mt });
+    part({ id: 'toe-bones-' + side, name: cap + ' toe bones', latin: 'Phalanges pedis ' + lat, sys: S, region: 'Lower limb', group: 'Foot', shapes: pt });
+  });
+})();
+
+/* =============================================================================
+   MUSCULAR SYSTEM — 39 structures. Superficial group paints last, so deep
+   strands are declared before the muscles that cover them.
+   ========================================================================== */
+(function () {
+  var S = 'muscular';
+  var sides = [[-1, 'right', 'dexter'], [1, 'left', 'sinister']];
+
+  sides.forEach(function (sd) {
+    var s = sd[0], side = sd[1], lat = sd[2], cap = side[0].toUpperCase() + side.slice(1);
+    var L = function (n) { return cap + ' ' + n; };
+
+    /* ---- deep / posterior strands first ---- */
+    part({
+      id: 'triceps-' + side, name: L('triceps brachii'), latin: 'Musculus triceps brachii ' + lat, sys: S, region: 'Upper limb', group: 'Arm',
+      shapes: [
+        sh(tubeS(s, [[86, 200, 26], [92, 250, 30], [98, 300, 24], [102, 338, 15]]), 'muscle2'),
+        sh(tubeS(s, [[90, 202, 8], [96, 250, 8], [100, 300, 7]]), 'tendon')
+      ]
+    });
+    part({
+      id: 'forearm-extensors-' + side, name: L('forearm extensors'), latin: 'Extensores antebrachii ' + lat, sys: S, region: 'Upper limb', group: 'Forearm',
+      shapes: [sh(tubeS(s, [[96, 352, 22], [103, 400, 18], [107, 462, 13]]), 'muscle2')]
+    });
+    part({
+      id: 'hamstrings-' + side, name: L('hamstrings'), latin: 'Musculi ischiocrurales ' + lat, sys: S, region: 'Lower limb', group: 'Thigh',
+      shapes: [sh(tubeS(s, [[52, 486, 30], [58, 540, 28], [54, 600, 22], [49, 644, 16]]), 'muscle2')]
+    });
+    part({
+      id: 'erector-' + side, name: L('erector spinae'), latin: 'Musculus erector spinae ' + lat, sys: S, region: 'Back & spine', group: 'Back',
+      shapes: [sh(tubeS(s, [[12, 250, 13], [14, 300, 14], [13, 360, 12], [11, 412, 9]]), 'muscle2')]
+    });
+
+    /* ---- superficial layer ---- */
+    part({
+      id: 'trapezius-' + side, name: L('trapezius'), latin: 'Musculus trapezius ' + lat, sys: S, region: 'Back & spine', group: 'Shoulder',
+      shapes: [sh(smoothS(s, [[12, 144], [34, 156], [60, 172], [78, 184], [66, 200], [46, 204], [26, 196], [14, 172]]) + 'Z', 'muscle', { op: 0.94 })]
+    });
+    part({
+      id: 'deltoid-' + side, name: L('deltoid'), latin: 'Musculus deltoideus ' + lat, sys: S, region: 'Upper limb', group: 'Shoulder',
+      shapes: [
+        sh(smoothS(s, [[62, 180], [80, 175], [96, 186], [101, 208], [92, 224], [74, 222], [62, 206]]) + 'Z', 'muscle'),
+        sh('M' + (CX + s * 64) + ',186Q' + (CX + s * 80) + ',176 ' + (CX + s * 96) + ',188', 'tendon')
+      ]
+    });
+    part({
+      id: 'pectoralis-' + side, name: L('pectoralis major'), latin: 'Musculus pectoralis major ' + lat, sys: S, region: 'Thorax', group: 'Chest',
+      shapes: [
+        sh(smoothS(s, [[8, 200], [30, 195], [54, 196], [74, 202], [70, 224], [52, 240], [26, 238], [8, 224]]) + 'Z', 'muscle'),
+        sh(smoothS(s, [[8, 202], [40, 200], [68, 204]]), 'tendon')
+      ]
+    });
+    part({
+      id: 'biceps-' + side, name: L('biceps brachii'), latin: 'Musculus biceps brachii ' + lat, sys: S, region: 'Upper limb', group: 'Arm',
+      shapes: [
+        sh(tubeS(s, [[80, 200, 22], [84, 250, 25], [90, 300, 20], [95, 340, 13]]), 'muscle'),
+        sh(tubeS(s, [[82, 202, 7], [86, 250, 7], [92, 300, 6]]), 'tendon'),
+        sh(tubeS(s, [[94, 330, 6], [96, 344, 5]]), 'tendon')
+      ]
+    });
+    part({
+      id: 'forearm-flexors-' + side, name: L('forearm flexors'), latin: 'Flexores antebrachii ' + lat, sys: S, region: 'Upper limb', group: 'Forearm',
+      shapes: [sh(tubeS(s, [[90, 352, 20], [96, 400, 17], [101, 462, 12]]), 'muscle')]
+    });
+    part({
+      id: 'latissimus-' + side, name: L('latissimus dorsi'), latin: 'Musculus latissimus dorsi ' + lat, sys: S, region: 'Back & spine', group: 'Back',
+      shapes: [sh(smoothS(s, [[26, 242], [46, 250], [60, 272], [58, 306], [48, 342], [34, 346], [30, 318], [26, 280]]) + 'Z', 'muscle', { op: 0.95 })]
+    });
+    part({
+      id: 'serratus-' + side, name: L('serratus anterior'), latin: 'Musculus serratus anterior ' + lat, sys: S, region: 'Thorax', group: 'Chest',
+      shapes: [
+        sh(tubeS(s, [[38, 244, 9], [62, 248, 7]]), 'muscle2'),
+        sh(tubeS(s, [[36, 256, 9], [62, 262, 7]]), 'muscle2'),
+        sh(tubeS(s, [[35, 268, 9], [60, 276, 7]]), 'muscle2'),
+        sh(tubeS(s, [[34, 280, 9], [58, 290, 7]]), 'muscle2')
+      ]
+    });
+    part({
+      id: 'oblique-' + side, name: L('external oblique'), latin: 'Musculus obliquus externus abdominis ' + lat, sys: S, region: 'Abdomen', group: 'Abdominal wall',
+      shapes: [
+        sh(smoothS(s, [[52, 306], [66, 330], [63, 372], [50, 404], [38, 396], [42, 350]]) + 'Z', 'muscle'),
+        sh(smoothS(s, [[44, 336], [58, 350], [60, 372]]), 'tendon')
+      ]
+    });
+    part({
+      id: 'gluteus-' + side, name: L('gluteus maximus'), latin: 'Musculus gluteus maximus ' + lat, sys: S, region: 'Pelvis & hip', group: 'Hip',
+      shapes: [sh(smoothS(s, [[14, 430], [40, 422], [64, 428], [72, 452], [64, 480], [40, 490], [20, 484], [12, 460]]) + 'Z', 'muscle')]
+    });
+    part({
+      id: 'quadriceps-' + side, name: L('quadriceps femoris'), latin: 'Musculus quadriceps femoris ' + lat, sys: S, region: 'Lower limb', group: 'Thigh',
+      shapes: [
+        sh(tubeS(s, [[32, 486, 46], [38, 540, 44], [36, 600, 34], [34, 644, 24]]), 'muscle'),
+        sh(tubeS(s, [[34, 636, 12], [36, 662, 9]]), 'tendon')
+      ]
+    });
+    part({
+      id: 'gastrocnemius-' + side, name: L('gastrocnemius'), latin: 'Musculus gastrocnemius ' + lat, sys: S, region: 'Lower limb', group: 'Calf',
+      shapes: [
+        sh(tubeS(s, [[36, 672, 30], [40, 706, 36], [34, 762, 22], [32, 794, 12]]), 'muscle'),
+        sh(tubeS(s, [[33, 790, 9], [33, 852, 7]]), 'tendon')
+      ]
+    });
+    part({
+      id: 'tibialis-' + side, name: L('tibialis anterior'), latin: 'Musculus tibialis anterior ' + lat, sys: S, region: 'Lower limb', group: 'Lower leg',
+      shapes: [sh(tubeS(s, [[47, 676, 13], [45, 750, 11], [43, 838, 7]]), 'muscle')]
+    });
+    part({
+      id: 'scm-' + side, name: L('sternocleidomastoid'), latin: 'Musculus sternocleidomastoideus ' + lat, sys: S, region: 'Head & neck', group: 'Neck',
+      shapes: [sh(tubeS(s, [[10, 141, 8], [18, 158, 7.5], [26, 176, 6]]), 'muscle')]
+    });
+    part({
+      id: 'masseter-' + side, name: L('masseter'), latin: 'Musculus masseter ' + lat, sys: S, region: 'Head & neck', group: 'Head',
+      shapes: [sh(tubeS(s, [[30, 106, 15], [36, 130, 11]]), 'muscle')]
+    });
+    part({
+      id: 'temporalis-' + side, name: L('temporalis'), latin: 'Musculus temporalis ' + lat, sys: S, region: 'Head & neck', group: 'Head',
+      shapes: [sh(tubeS(s, [[30, 74, 17], [42, 98, 10]]), 'muscle', { op: 0.9 })]
+    });
+  });
+
+  part({
+    id: 'rectus-abdominis', name: 'Rectus abdominis', latin: 'Musculus rectus abdominis', sys: S, region: 'Abdomen', group: 'Abdominal wall',
+    shapes: [
+      sh(rrect(CX - 27, 302, 24, 138, 8), 'muscle'),
+      sh(rrect(CX + 3, 302, 24, 138, 8), 'muscle'),
+      sh('M' + [CX - 27, 336] + 'L' + [CX + 27, 336], 'tendon'),
+      sh('M' + [CX - 27, 370] + 'L' + [CX + 27, 370], 'tendon'),
+      sh('M' + [CX - 27, 404] + 'L' + [CX + 27, 404], 'tendon'),
+      sh('M' + [CX - 1, 302] + 'L' + [CX - 1, 440], 'tendon'),
+      sh('M' + [CX - 29, 440] + 'L' + [CX + 29, 440], 'tendon')
+    ]
+  });
+  part({
+    id: 'transversus-abdominis', name: 'Transversus abdominis', latin: 'Musculus transversus abdominis', sys: S, region: 'Abdomen', group: 'Abdominal wall',
+    shapes: [
+      sh(tube([[176, 320], [168, 360], [170, 404]], [10, 12, 10]), 'muscle2', { op: 0.55 }),
+      sh(tube([[224, 320], [232, 360], [230, 404]], [10, 12, 10]), 'muscle2', { op: 0.55 })
+    ]
+  });
+  part({
+    id: 'diaphragm', name: 'Diaphragm', latin: 'Diaphragma', sys: S, region: 'Thorax', group: 'Breathing',
+    shapes: [
+      sh(tube([[138, 304], [166, 274], [200, 266], [234, 274], [262, 304]], [13, 11, 10, 11, 13]), 'muscle'),
+      sh(tube([[186, 300], [200, 292], [214, 300]], [5, 5, 5]), 'tendon')
+    ]
+  });
+})();
+
+/* =============================================================================
+   CIRCULATORY SYSTEM — heart, arteries (red) and veins (blue).
+   ========================================================================== */
+(function () {
+  var S = 'circulatory';
+  var sides = [[-1, 'right', 'dexter'], [1, 'left', 'sinister']];
+
+  part({
+    id: 'heart', name: 'Heart', latin: 'Cor', sys: S, region: 'Thorax', group: 'Central pump',
+    shapes: [
+      sh('M194,232C202,220 218,216 230,228C244,242 250,264 242,280C236,292 222,298 214,290C206,280 196,264 194,248Z', 'heart'),
+      sh('M196,240C212,248 226,258 236,270', 'line', { sw: 1 }),
+      sh('M200,232C214,238 226,246 234,256', 'line', { sw: 0.9 }),
+      sh(ell(228, 226, 9, 7, -20), 'heart')
+    ]
+  });
+  part({
+    id: 'aorta', name: 'Aorta', latin: 'Aorta', sys: S, region: 'Thorax', group: 'Great vessels',
+    shapes: [
+      sh(tube([[226, 232], [230, 216], [226, 202], [214, 194], [204, 200], [202, 220], [202, 260], [203, 320], [203, 400], [203, 430]], [10, 10, 9, 9, 9, 8, 7.5, 7, 6.5, 6]), 'artery')
+    ]
+  });
+  part({
+    id: 'pulmonary-trunk', name: 'Pulmonary trunk & arteries', latin: 'Truncus pulmonalis', sys: S, region: 'Thorax', group: 'Great vessels',
+    shapes: [
+      sh(tube([[210, 228], [204, 214], [198, 202]], [9, 8.5, 8]), 'artery'),
+      sh(tube([[198, 202], [186, 194], [166, 198]], [7, 6.5, 5.5]), 'artery'),
+      sh(tube([[198, 202], [212, 194], [232, 198]], [7, 6.5, 5.5]), 'artery')
+    ]
+  });
+  part({
+    id: 'vena-cava-superior', name: 'Superior vena cava', latin: 'Vena cava superior', sys: S, region: 'Thorax', group: 'Great vessels',
+    shapes: [sh(tube([[194, 192], [197, 210], [199, 226]], [8, 8, 8]), 'vein')]
+  });
+  part({
+    id: 'vena-cava-inferior', name: 'Inferior vena cava', latin: 'Vena cava inferior', sys: S, region: 'Abdomen', group: 'Great vessels',
+    shapes: [sh(tube([[185, 432], [187, 380], [189, 320], [194, 272], [197, 250]], [9, 9, 8.5, 8, 7]), 'vein')]
+  });
+  part({
+    id: 'portal-vein', name: 'Hepatic portal vein', latin: 'Vena portae hepatis', sys: S, region: 'Abdomen', group: 'Abdominal vessels',
+    shapes: [sh(tube([[196, 382], [190, 364], [182, 348], [172, 338]], [6.5, 6.5, 6, 5.5]), 'vein')]
+  });
+
+  sides.forEach(function (sd) {
+    var s = sd[0], side = sd[1], lat = sd[2], cap = side[0].toUpperCase() + side.slice(1);
+    var L = function (n) { return cap + ' ' + n; };
+    part({
+      id: 'carotid-' + side, name: L('common carotid artery'), latin: 'Arteria carotis communis ' + lat, sys: S, region: 'Head & neck', group: 'Head & neck vessels',
+      shapes: [sh(tubeS(s, [[7, 138, 7], [9, 168, 6.5], [11, 196, 6]]), 'artery')]
+    });
+    part({
+      id: 'jugular-' + side, name: L('internal jugular vein'), latin: 'Vena jugularis interna ' + lat, sys: S, region: 'Head & neck', group: 'Head & neck vessels',
+      shapes: [sh(tubeS(s, [[16, 136, 7], [18, 166, 6.5], [19, 196, 6]]), 'vein')]
+    });
+    part({
+      id: 'subclavian-' + side, name: L('subclavian vessels'), latin: 'Arteria et vena subclavia ' + lat, sys: S, region: 'Upper limb', group: 'Arm vessels',
+      shapes: [
+        sh(tubeS(s, [[10, 197, 8], [40, 194, 7.5], [66, 191, 6.5]]), 'artery'),
+        sh(tubeS(s, [[10, 204, 7], [40, 202, 7], [66, 199, 6]]), 'vein')
+      ]
+    });
+    part({
+      id: 'brachial-' + side, name: L('brachial artery'), latin: 'Arteria brachialis ' + lat, sys: S, region: 'Upper limb', group: 'Arm vessels',
+      shapes: [sh(tubeS(s, [[80, 206, 7], [86, 250, 6.5], [90, 300, 6], [94, 344, 5.5]]), 'artery')]
+    });
+    part({
+      id: 'radial-' + side, name: L('radial artery'), latin: 'Arteria radialis ' + lat, sys: S, region: 'Upper limb', group: 'Forearm vessels',
+      shapes: [sh(tubeS(s, [[98, 356, 5.5], [102, 410, 5], [104, 468, 4.5]]), 'artery')]
+    });
+    part({
+      id: 'ulnar-' + side, name: L('ulnar artery'), latin: 'Arteria ulnaris ' + lat, sys: S, region: 'Upper limb', group: 'Forearm vessels',
+      shapes: [sh(tubeS(s, [[91, 356, 5.5], [91, 412, 5], [93, 468, 4.5]]), 'artery')]
+    });
+    part({
+      id: 'cephalic-' + side, name: L('cephalic vein'), latin: 'Vena cephalica ' + lat, sys: S, region: 'Upper limb', group: 'Forearm vessels',
+      shapes: [sh(tubeS(s, [[104, 360, 5], [110, 420, 4.5], [112, 468, 4]]), 'vein')]
+    });
+    part({
+      id: 'renal-artery-' + side, name: L('renal artery'), latin: 'Arteria renalis ' + lat, sys: S, region: 'Abdomen', group: 'Abdominal vessels',
+      shapes: [sh(tubeS(s, [[5, 334, 5.5], [28, 340, 4.5]]), 'artery')]
+    });
+    part({
+      id: 'iliac-' + side, name: L('common iliac artery'), latin: 'Arteria iliaca communis ' + lat, sys: S, region: 'Pelvis & hip', group: 'Pelvic vessels',
+      shapes: [sh(tubeS(s, [[3, 432, 8], [18, 448, 7.5], [27, 462, 6.5]]), 'artery')]
+    });
+    part({
+      id: 'femoral-artery-' + side, name: L('femoral artery'), latin: 'Arteria femoralis ' + lat, sys: S, region: 'Lower limb', group: 'Leg vessels',
+      shapes: [sh(tubeS(s, [[29, 470, 7], [33, 520, 6], [34, 600, 5.5], [34, 646, 5]]), 'artery')]
+    });
+    part({
+      id: 'femoral-vein-' + side, name: L('femoral vein'), latin: 'Vena femoralis ' + lat, sys: S, region: 'Lower limb', group: 'Leg vessels',
+      shapes: [sh(tubeS(s, [[23, 470, 7.5], [25, 520, 6.5], [26, 600, 6], [28, 646, 5.5]]), 'vein')]
+    });
+    part({
+      id: 'saphenous-' + side, name: L('great saphenous vein'), latin: 'Vena saphena magna ' + lat, sys: S, region: 'Lower limb', group: 'Leg vessels',
+      shapes: [sh(tubeS(s, [[19, 478, 5.5], [17, 560, 5.5], [20, 660, 5], [24, 762, 4.5], [27, 850, 4]]), 'vein')]
+    });
+    part({
+      id: 'tibial-artery-' + side, name: L('tibial arteries (below knee)'), latin: 'Arteriae tibiales ' + lat, sys: S, region: 'Lower limb', group: 'Leg vessels',
+      shapes: [sh(tubeS(s, [[33, 652, 5], [31, 710, 4.5], [29, 790, 4], [28, 852, 3.5]]), 'artery')]
+    });
+  });
+})();
+
+/* =============================================================================
+   NERVOUS SYSTEM — central axis plus the peripheral nerves that a front view
+   can actually show. Eyes ride here: they are the sensory end-organs of the CNS.
+   ========================================================================== */
+(function () {
+  var S = 'nervous';
+  var sides = [[-1, 'right', 'dexter'], [1, 'left', 'sinister']];
+
+  part({
+    id: 'cerebellum', name: 'Cerebellum', latin: 'Cerebellum', sys: S, region: 'Head & neck', group: 'Brain',
+    shapes: [
+      sh(ell(200, 94, 23, 11), 'brain', { op: 0.95 }),
+      sh('M184,90Q200,101 216,90', 'line', { sw: 0.85 }),
+      sh('M188,97Q200,106 212,97', 'line', { sw: 0.85 })
+    ]
+  });
+  part({
+    id: 'cerebrum', name: 'Cerebrum', latin: 'Cerebrum', sys: S, region: 'Head & neck', group: 'Brain',
+    shapes: [
+      sh('M200,28C220,28 233,42 232,62C231,79 220,88 200,89C180,88 169,79 168,62C167,42 180,28 200,28Z', 'brain', { op: 0.86 }),
+      sh('M200,30L200,88', 'line', { sw: 1 }),
+      sh('M180,46Q190,41 200,46Q210,41 220,48', 'line', { sw: 0.85 }),
+      sh('M175,62Q186,57 197,62', 'line', { sw: 0.85 }),
+      sh('M203,62Q214,57 225,62', 'line', { sw: 0.85 }),
+      sh('M183,76Q191,71 200,76Q209,71 217,78', 'line', { sw: 0.85 })
+    ]
+  });
+  part({
+    id: 'brainstem', name: 'Brainstem (midbrain, pons, medulla)', latin: 'Truncus encephali', sys: S, region: 'Head & neck', group: 'Brain',
+    shapes: [
+      sh(tube([[200, 74], [201, 100], [200, 122], [200, 134]], [13, 15, 12, 10]), 'brain'),
+      sh(ell(200, 98, 15, 9), 'brain')
+    ]
+  });
+  part({
+    id: 'spinal-cord', name: 'Spinal cord & cauda equina', latin: 'Medulla spinalis', sys: S, region: 'Back & spine', group: 'Central axis',
+    shapes: [
+      sh(tube([[200, 126], [200, 200], [200, 290], [200, 360], [200, 392]], [9, 8, 7.5, 6.5, 6]), 'nerve'),
+      sh(tube([[200, 384], [194, 412], [192, 424]], [4, 3, 2.4]), 'nerve'),
+      sh(tube([[200, 384], [199, 412], [198, 426]], [4, 3, 2.4]), 'nerve'),
+      sh(tube([[200, 384], [206, 412], [209, 424]], [4, 3, 2.4]), 'nerve')
+    ]
+  });
+  part({
+    id: 'intercostal-nerves', name: 'Intercostal nerves', latin: 'Nervi intercostales', sys: S, region: 'Thorax', group: 'Trunk nerves',
+    shapes: (function () {
+      var out = [];
+      for (var i = 0; i < 10; i++) {
+        var y = 198 + i * 10.4, w = i < 3 ? 3 : 2.6;
+        out.push(sh(tube([[202, y], [CX - 44, y + 14], [CX - 58, y + 22]], [w, w * 0.85, w * 0.7]), 'nerve'));
+        out.push(sh(tube([[202, y], [CX + 44, y + 14], [CX + 58, y + 22]], [w, w * 0.85, w * 0.7]), 'nerve'));
+      }
+      return out;
+    })()
+  });
+
+  sides.forEach(function (sd) {
+    var s = sd[0], side = sd[1], lat = sd[2], cap = side[0].toUpperCase() + side.slice(1);
+    var L = function (n) { return cap + ' ' + n; };
+    part({
+      id: 'vagus-' + side, name: L('vagus nerve'), latin: 'Nervus vagus ' + lat, sys: S, region: 'Head & neck', group: 'Cranial nerves',
+      shapes: [
+        sh(tubeS(s, [[12, 140, 4], [14, 180, 4], [15, 230, 3.6], [13, 300, 3.2], [9, 350, 3]]), 'nerve')
+      ]
+    });
+    part({
+      id: 'optic-nerve-' + side, name: L('optic nerve'), latin: 'Nervus opticus ' + lat, sys: S, region: 'Head & neck', group: 'Cranial nerves',
+      shapes: [sh(tubeS(s, [[18, 116, 4], [4, 128, 3.6]]), 'nerve')]
+    });
+    part({
+      id: 'eye-' + side, name: L('eye'), latin: 'Oculus ' + lat, sys: S, region: 'Head & neck', group: 'Sense organs',
+      shapes: [
+        sh(ellS(s, 20, 116, 9, 9), 'eye'),
+        sh(ellS(s, 20, 116, 4, 4), 'void')
+      ]
+    });
+    part({
+      id: 'brachial-plexus-' + side, name: L('brachial plexus'), latin: 'Plexus brachialis ' + lat, sys: S, region: 'Upper limb', group: 'Plexus',
+      shapes: [
+        sh(tubeS(s, [[12, 156, 5], [30, 166, 7], [52, 176, 7], [70, 184, 5]]), 'nerve'),
+        sh(tubeS(s, [[34, 168, 3], [54, 186, 3], [70, 196, 2.6]]), 'nerve'),
+        sh(tubeS(s, [[30, 172, 3], [48, 196, 3], [64, 210, 2.6]]), 'nerve')
+      ]
+    });
+    part({
+      id: 'median-nerve-' + side, name: L('median nerve'), latin: 'Nervus medianus ' + lat, sys: S, region: 'Upper limb', group: 'Arm nerves',
+      shapes: [sh(tubeS(s, [[82, 200, 3.6], [86, 250, 3.4], [91, 310, 3.2], [95, 400, 3], [97, 470, 2.8]]), 'nerve')]
+    });
+    part({
+      id: 'ulnar-nerve-' + side, name: L('ulnar nerve'), latin: 'Nervus ulnaris ' + lat, sys: S, region: 'Upper limb', group: 'Arm nerves',
+      shapes: [sh(tubeS(s, [[88, 206, 3.2], [90, 270, 3], [91, 340, 3], [92, 410, 2.8], [93, 470, 2.6]]), 'nerve')]
+    });
+    part({
+      id: 'radial-nerve-' + side, name: L('radial nerve'), latin: 'Nervus radialis ' + lat, sys: S, region: 'Upper limb', group: 'Arm nerves',
+      shapes: [sh(tubeS(s, [[95, 204, 3.4], [100, 270, 3.2], [103, 340, 3], [105, 408, 2.8], [106, 464, 2.6]]), 'nerve')]
+    });
+    part({
+      id: 'femoral-nerve-' + side, name: L('femoral nerve'), latin: 'Nervus femoralis ' + lat, sys: S, region: 'Lower limb', group: 'Leg nerves',
+      shapes: [sh(tubeS(s, [[14, 438, 4], [22, 500, 3.6], [28, 572, 3.2], [30, 624, 3]]), 'nerve')]
+    });
+    part({
+      id: 'sciatic-nerve-' + side, name: L('sciatic nerve'), latin: 'Nervus ischiadicus ' + lat, sys: S, region: 'Lower limb', group: 'Leg nerves',
+      shapes: [
+        sh(tubeS(s, [[18, 448, 6], [28, 500, 5.4], [38, 566, 5], [41, 630, 4.4], [38, 660, 4]]), 'nerve'),
+        sh(tubeS(s, [[40, 620, 3], [48, 650, 2.6]]), 'nerve')
+      ]
+    });
+    part({
+      id: 'tibial-nerve-' + side, name: L('tibial nerve'), latin: 'Nervus tibialis ' + lat, sys: S, region: 'Lower limb', group: 'Leg nerves',
+      shapes: [sh(tubeS(s, [[36, 668, 3.6], [33, 736, 3.2], [30, 812, 2.8], [28, 856, 2.6]]), 'nerve')]
+    });
+    part({
+      id: 'peroneal-nerve-' + side, name: L('common peroneal nerve'), latin: 'Nervus peroneus communis ' + lat, sys: S, region: 'Lower limb', group: 'Leg nerves',
+      shapes: [sh(tubeS(s, [[46, 666, 3.2], [47, 716, 2.8], [45, 796, 2.6], [43, 848, 2.4]]), 'nerve')]
+    });
+  });
+})();
+
+/* =============================================================================
+   ORGANS — thoracic and abdominal viscera. Deepest layer: the skeleton paints
+   over them, so the rib cage reads in front of the lungs and liver.
+   ========================================================================== */
+(function () {
+  var S = 'organs';
+  var sides = [[-1, 'right', 'dexter'], [1, 'left', 'sinister']];
+
+  /* ---- chest ---- */
+  part({
+    id: 'lung-right', name: 'Right lung', latin: 'Pulmo dexter', sys: S, region: 'Thorax', group: 'Lungs',
+    shapes: [
+      sh('M188,200C176,196 154,204 146,224C138,246 138,274 143,298C154,304 172,304 181,298C187,288 189,260 189,236C189,216 190,204 188,200Z', 'lung'),
+      sh('M170,232C164,254 164,278 170,294', 'line', { sw: 0.9 })
+    ]
+  });
+  part({
+    id: 'lung-left', name: 'Left lung', latin: 'Pulmo sinister', sys: S, region: 'Thorax', group: 'Lungs',
+    shapes: [
+      sh('M212,200C224,196 246,204 254,224C262,246 262,272 257,298C246,304 228,304 219,298C214,288 214,272 218,258C222,246 218,238 212,230C208,222 208,208 212,200Z', 'lung'),
+      sh('M230,232C236,254 236,278 230,294', 'line', { sw: 0.9 }),
+      sh('M218,258C224,252 232,250 240,252', 'line', { sw: 0.9 })
+    ]
+  });
+  part({
+    id: 'trachea', name: 'Trachea', latin: 'Trachea', sys: S, region: 'Head & neck', group: 'Airways',
+    shapes: [
+      sh(tube([[200, 146], [200, 172], [200, 198]], [13, 12, 12]), 'tra'),
+      sh('M194,152L206,152', 'line', { sw: 0.8 }), sh('M194,160L206,160', 'line', { sw: 0.8 }),
+      sh('M194,168L206,168', 'line', { sw: 0.8 }), sh('M194,176L206,176', 'line', { sw: 0.8 }),
+      sh('M194,184L206,184', 'line', { sw: 0.8 }), sh('M194,192L206,192', 'line', { sw: 0.8 })
+    ]
+  });
+  part({
+    id: 'bronchi', name: 'Main bronchi', latin: 'Bronchi principales', sys: S, region: 'Thorax', group: 'Airways',
+    shapes: [
+      sh(tube([[200, 196], [190, 210], [178, 222]], [9, 8, 7]), 'tra'),
+      sh(tube([[200, 196], [212, 208], [224, 218]], [9, 8, 7]), 'tra')
+    ]
+  });
+  part({
+    id: 'thymus', name: 'Thymus', latin: 'Thymus', sys: S, region: 'Thorax', group: 'Immune',
+    shapes: [
+      sh(tube([[194, 196], [193, 214]], [12, 9]), 'gland'),
+      sh(tube([[207, 196], [208, 214]], [11, 8]), 'gland')
+    ]
+  });
+
+  /* ---- abdomen: patient's right side (screen left) is the liver ---- */
+  part({
+    id: 'liver', name: 'Liver', latin: 'Hepar', sys: S, region: 'Abdomen', group: 'Digestive',
+    shapes: [
+      sh('M143,308C150,299 176,294 198,297C212,299 219,307 217,320C215,338 205,352 189,356C170,361 148,354 142,344C136,332 137,317 143,308Z', 'liver'),
+      sh('M160,318C168,312 182,310 196,312', 'line', { sw: 0.9 }),
+      sh('M186,300C186,318 184,338 180,353', 'line', { sw: 0.9 })
+    ]
+  });
+  part({
+    id: 'gallbladder', name: 'Gallbladder', latin: 'Vesica biliaris', sys: S, region: 'Abdomen', group: 'Digestive',
+    shapes: [
+      sh(ell(167, 352, 8, 13, 18), 'gall'),
+      sh(ell(166, 346, 4, 4), 'gall')
+    ]
+  });
+  part({
+    id: 'pancreas', name: 'Pancreas', latin: 'Pancreas', sys: S, region: 'Abdomen', group: 'Digestive',
+    shapes: [
+      sh(tube([[171, 348], [192, 342], [214, 336], [238, 334]], [8, 10, 9, 6]), 'panc'),
+      sh('M190,340L196,350', 'line', { sw: 0.8 })
+    ]
+  });
+  part({
+    id: 'stomach', name: 'Stomach', latin: 'Gaster / Ventriculus', sys: S, region: 'Abdomen', group: 'Digestive',
+    shapes: [
+      sh('M205,300C220,295 236,304 237,320C238,340 226,355 211,358C201,360 195,352 200,345C209,334 216,324 214,314C212,307 208,303 205,303Z', 'stomach'),
+      sh('M212,306C206,314 204,326 208,338', 'line', { sw: 0.9 }),
+      sh('M236,318C242,320 246,326 246,334', 'line', { sw: 0.9 })
+    ]
+  });
+  part({
+    id: 'spleen', name: 'Spleen', latin: 'Splen / Lien', sys: S, region: 'Abdomen', group: 'Immune',
+    shapes: [sh(ell(250, 324, 14, 18, -14), 'spleen')]
+  });
+
+  /* ---- urinary ---- */
+  sides.forEach(function (sd) {
+    var s = sd[0], side = sd[1], lat = sd[2], cap = side[0].toUpperCase() + side.slice(1);
+    part({
+      id: 'kidney-' + side, name: cap + ' kidney', latin: 'Ren ' + lat, sys: S, region: 'Abdomen', group: 'Urinary',
+      shapes: [
+        sh(ellS(s, 31, 372, 16, 21), 'kidney'),
+        sh(ellS(s, 21, 372, 6, 9), 'cavity')
+      ]
+    });
+    part({
+      id: 'adrenal-' + side, name: cap + ' adrenal gland', latin: 'Glandula suprarenalis ' + lat, sys: S, region: 'Abdomen', group: 'Endocrine',
+      shapes: [sh(poly([spa(s, 20, 350), spa(s, 42, 344), spa(s, 38, 362)]), 'adre')]
+    });
+    part({
+      id: 'ureter-' + side, name: cap + ' ureter', latin: 'Ureter ' + lat, sys: S, region: 'Abdomen', group: 'Urinary',
+      shapes: [sh(tubeS(s, [[26, 392, 4.5], [20, 432, 4], [14, 466, 3.6]]), 'gland')]
+    });
+  });
+  part({
+    id: 'bladder', name: 'Urinary bladder', latin: 'Vesica urinaria', sys: S, region: 'Pelvis & hip', group: 'Urinary',
+    shapes: [
+      sh(ell(200, 480, 25, 20), 'bladder'),
+      sh(tube([[200, 460], [200, 470]], [5, 5]), 'gland')
+    ]
+  });
+
+  /* ---- gut: small bowel first, colon frame over it ---- */
+  part({
+    id: 'small-intestine', name: 'Small intestine', latin: 'Intestinum tenue', sys: S, region: 'Abdomen', group: 'Digestive',
+    shapes: [
+      sh(tube([[176, 384], [222, 392], [174, 402], [222, 412], [176, 422], [220, 432], [178, 442], [216, 452], [188, 460]],
+        [15, 15, 15, 15, 15, 15, 15, 15, 14]), 'gut')
+    ]
+  });
+  part({
+    id: 'large-intestine', name: 'Large intestine', latin: 'Intestinum crassum', sys: S, region: 'Abdomen', group: 'Digestive',
+    shapes: [
+      sh(tube([[152, 472], [146, 430], [145, 386], [150, 358], [172, 344], [206, 342], [236, 348], [248, 376], [250, 424], [248, 460], [238, 478], [222, 486]],
+        [18, 18, 18, 18, 17, 17, 17, 17, 17, 17, 16, 14]), 'colon'),
+      sh('M152,376L250,376', 'line', { sw: 0.8 }),
+      sh('M152,400L250,400', 'line', { sw: 0.8 })
+    ]
+  });
+  part({
+    id: 'appendix', name: 'Appendix', latin: 'Appendix vermiformis', sys: S, region: 'Abdomen', group: 'Digestive',
+    shapes: [sh(tube([[145, 470], [138, 484], [133, 496]], [6, 5, 4]), 'gut')]
+  });
+})();
+
+/* =============================================================================
+   RECORDS — skeletal system. Function, key facts, measured figures and the
+   structures each one works with. Runs inside the core closure.
+   ========================================================================== */
+(function () {
+  one('cranium', {
+    aka: 'Skull vault', fn: 'The neurocranium is the bony box around the brain: eight flat bones locked together by serrated sutures, with the frontal bone at the forehead, the parietals over the crown and the occipital at the back of the head. It also suspends the meninges, the venous sinuses and the pituitary gland.',
+    facts: [
+      'Eight flat bones fuse along serrated sutures that only knit solid in the mid-twenties.',
+      'The inner surface is moulded to the brain, with fossae matching each lobe.',
+      'Its base carries 12 holes and canals for the cranial nerves and vessels.'
+    ],
+    stats: [['Bone thickness', '5–10 mm'], ['Cranial volume', '~1,400 mL'], ['Sutures', '~10 major']],
+    conn: ['cerebrum', 'facial-bones', 'mandible']
+  });
+  one('facial-bones', {
+    aka: 'Viscerocranium', fn: 'The fourteen facial bones build the eye sockets, the nasal cavity and the upper jaw. The maxillae carry the upper teeth and house the largest sinus; the zygomatic bones make the cheekbones that take a punch first.',
+    facts: [
+      'Each orbit is assembled from seven bones — no single bone forms the socket.',
+      'The maxillae hold the maxillary sinuses and the upper tooth roots, which is why a sinus infection feels like toothache.',
+      'Facial sutures are already fused in adults, so the face is far stiffer than the vault.'
+    ],
+    stats: [['Bones', '13 plus mandible'], ['Orbit depth', '~4 cm'], ['Maxillary sinus', '~15 mL']],
+    conn: ['cranium', 'mandible', 'eye-left']
+  });
+  one('mandible', {
+    aka: 'Lower jaw', fn: 'The only freely movable bone of the skull. It hinges in front of each ear and carries the lower teeth, driven by the masseter, temporalis and pterygoids — the strongest force-per-size muscles in the body.',
+    facts: [
+      'It begins as two halves joined at the chin and fuses within the first year.',
+      'The temporomandibular joint both hinges and slides, letting the jaw open about 5 cm.',
+      'It is the last bone of the skull to finish growing, which is why the face lengthens in the teens.'
+    ],
+    stats: [['Bite force, molars', '~700–900 N'], ['Opening range', '40–50 mm'], ['Teeth', '16 lower']],
+    conn: ['cranium', 'facial-bones', 'masseter-left']
+  });
+  one('hyoid', {
+    aka: 'Tongue bone', fn: 'A small U-shaped bone that floats in the front of the neck at the base of the tongue. It is the only bone in the body that articulates with nothing else: it hangs from muscle and ligament, anchoring the tongue and larynx so that swallowing and speech are possible.',
+    facts: [
+      'No joint — it is suspended entirely by muscles and ligaments.',
+      'It is pulled upward with the larynx during swallowing, closing the airway.',
+      'A fractured hyoid in a body is a classic forensic marker of manual strangulation.'
+    ],
+    stats: [['Length', '3–4 cm'], ['Articulations', 'none'], ['Attachments', '9 muscles']],
+    conn: ['mandible', 'cervical-spine', 'trachea']
+  });
+  one('cervical-spine', {
+    aka: 'Neck spine', fn: 'Seven vertebrae hold the head and let it turn. The first (atlas) is a ring that carries the skull and nods; the second (axis) has a peg that the atlas spins around, giving half of all neck rotation. Their bodies are small and light because they carry the least weight of the whole column.',
+    facts: [
+      'The atlas is named after the titan who carried the heavens on his shoulders.',
+      'The atlas–axis joint alone supplies roughly 45° of rotation each way.',
+      'Each transverse process has a hole that threads the vertebral artery to the brain.'
+    ],
+    stats: [['Vertebrae', '7 (C1–C7)'], ['Total rotation', '80–90°'], ['Load carried', 'least of the spine']],
+    conn: ['cranium', 'thoracic-spine', 'carotid-left']
+  });
+  one('thoracic-spine', {
+    aka: 'Mid-back spine', fn: 'Twelve vertebrae, each providing a facet for a pair of ribs. They form the only part of the spine that grips the rib cage, and their overlapping spinous processes make this the stiffest region of the back — which is why it protects the heart and lungs so well.',
+    facts: [
+      'The only spinal region with joints for ribs, so it moves with every breath.',
+      'Its backward curve (kyphosis) is the one present in a newborn.',
+      'Rotation is freest in the mid-thoracic spine, bending is freest at the ends.'
+    ],
+    stats: [['Vertebrae', '12 (T1–T12)'], ['Rib pairs attached', '12'], ['Curve', 'kyphotic']],
+    conn: ['cervical-spine', 'lumbar-spine', 'ribs-true-left', 'spinal-cord']
+  });
+  one('lumbar-spine', {
+    aka: 'Lower back', fn: 'Five heavy vertebrae carry all the weight above the pelvis. Their bodies are the largest in the spine and their joints permit bending but almost no twisting, so lifting a load while turning is how lumbar discs and facets are most often damaged.',
+    facts: [
+      'The L5–S1 level takes the highest shear load and is where most disc herniations occur.',
+      'The lumbar curve appears after a child starts walking and standing.',
+      'Standing compresses the discs so much that body height falls 1–2 cm over a day.'
+    ],
+    stats: [['Vertebrae', '5 (L1–L5)'], ['Load at L5/S1', '~2–3× body weight standing'], ['Range, flexion', '~60°']],
+    conn: ['thoracic-spine', 'sacrum', 'erector-left', 'sciatic-nerve-left']
+  });
+  one('sacrum', {
+    aka: 'Holy bone', fn: 'Five vertebrae fused into one triangular bone wedged between the two iliac wings. It is the keystone of the pelvis: the spine rests on it and the pelvis transfers the load of the upper body into both legs.',
+    facts: [
+      'Five separate vertebrae fuse between roughly 16 and 30 years of age.',
+      'Its four pairs of holes carry the sacral nerves out to the legs and pelvic organs.',
+      'It joins the ilium at the sacroiliac joints, which allow only a few millimetres of movement.'
+    ],
+    stats: [['Vertebrae fused', '5'], ['Nerve passages', '8 (4 pairs)'], ['Angle of tilt', '~40°']],
+    conn: ['lumbar-spine', 'pelvis', 'coccyx']
+  });
+  one('coccyx', {
+    aka: 'Tailbone', fn: 'Three to five shrunken vertebrae forming the human tail remnant. It is the attachment for the pelvic floor muscles and part of the gluteus maximus, and it helps support the body when sitting down.',
+    facts: [
+      'Falls onto a hard seat are the commonest cause of coccyx pain.',
+      'In a tailed mammal these vertebrae would carry the tail musculature.',
+      'It is the last part of the vertebral column to ossify.'
+    ],
+    stats: [['Vertebrae', '3–5 fused'], ['Length', '~3 cm'], ['Joint', 'sacrococcygeal']],
+    conn: ['sacrum', 'pelvis', 'gluteus-left']
+  });
+  pair('scapula', {
+    aka: 'Shoulder blade', fn: 'A flat triangular bone that glides over the ribs at the back of the shoulder. It binds the arm to the trunk: the humerus sits in its shallow socket and the clavicle meets its acromion, and its muscular sling rotates the socket upward when you raise an arm.',
+    facts: [
+      'It is the bone that makes shoulder elevation possible — the socket lifts as the arm goes up.',
+      'Its glenoid socket is shallow, so the shoulder trades stability for the widest range of motion in the body.',
+      'It has 17 muscle attachments but no bony joint with the spine.'
+    ],
+    stats: [['Angle of rotation', '~60°'], ['Muscle attachments', '17'], ['Bone type', 'flat, no marrow cavity']],
+    conn: ['clavicle-left', 'humerus-left', 'trapezius-left']
+  });
+  pair('ribs-true', {
+    aka: 'Ribs 1–7', fn: 'The upper seven rib pairs, each running from its vertebra around the chest to reach the sternum through its own costal cartilage. They form the rigid front of the thorax, guarding the heart, great vessels and upper lungs.',
+    facts: [
+      'True ribs each attach directly to the sternum with a bar of cartilage.',
+      'The first rib is the shortest, deepest and hardest to feel; the seventh flares into the costal margin.',
+      'The ribs move 1–2 cm with quiet breathing and much further when the accessory muscles join in.'
+    ],
+    stats: [['Ribs per side', '7'], ['Length, longest', '~30 cm'], ['Chest rise', '1–2 cm per breath']],
+    conn: ['sternum', 'ribs-false-left', 'lung-left', 'heart']
+  });
+  pair('ribs-false', {
+    aka: 'Ribs 8–10', fn: 'Three pairs of ribs that never reach the sternum. Their cartilages merge into the costal arch below, which is the springy rim you can feel with your fingers under the lower ribs — and the reason a rib cage can expand instead of being one rigid box.',
+    facts: [
+      'They join each other and the cartilage of rib 7 rather than the sternum.',
+      'The costal arch is the boundary between the chest and the abdomen.',
+      'These ribs are the ones injured when a liver or kidney injury is suspected after a blow.'
+    ],
+    stats: [['Ribs per side', '3'], ['Arch angle', '~70–90°'], ['Cartilage', 'shared']],
+    conn: ['ribs-true-left', 'ribs-floating-left', 'sternum', 'diaphragm']
+  });
+  pair('ribs-floating', {
+    aka: 'Ribs 11–12', fn: 'Two short ribs per side that end in muscle, attached only to their vertebrae. Because nothing anchors the front end, these ribs are the ones a surgeon can reach through without cutting cartilage.',
+    facts: [
+      'They float freely, attached only to the spine, and their tips can be felt in the flank.',
+      'Their flexibility allows the flank to expand, which is why they matter for deep breathing.',
+      'They are notoriously easy to confuse with abdominal pain or a kidney problem.'
+    ],
+    stats: [['Ribs per side', '2'], ['Distinctive feature', 'no anterior attachment'], ['Cartilage', 'none']],
+    conn: ['ribs-false-left', 'thoracic-spine', 'kidney-left']
+  });
+  one('sternum', {
+    aka: 'Breastbone', fn: 'The flat bone running down the front of the chest: a wider manubrium at the top, a long body, and a small xiphoid tip. It closes the front of the rib cage and carries the sternum pads and the origin of the diaphragm.',
+    facts: [
+      'Ribs 1–7 dock here through cartilage, making the front chest slightly flexible.',
+      'A mid-line sting of pain here should be taken seriously: the sternum guards the heart.',
+      'Marrow in the sternum is a standard site for a bone-marrow sample.'
+    ],
+    stats: [['Length', '15–20 cm'], ['Segments', '3'], ['Cartilage joints', '14']],
+    conn: ['ribs-true-left', 'clavicle-left', 'heart', 'thymus']
+  });
+  pair('clavicle', {
+    aka: 'Collar bone', fn: 'The only long bone that lies across the body. It props the shoulder away from the chest so the arm can swing freely, and it channels shocks from the hand sideways into the spine instead of into the neck.',
+    facts: [
+      'It is the most commonly fractured bone — the mid-shaft gives way in falls onto the shoulder.',
+      'It is the first bone in the embryo to begin ossifying, at about five weeks.',
+      'All of the arm is suspended from it, so it is the last bony strut before the limb hangs free.'
+    ],
+    stats: [['Length', '~15 cm'], ['Ossification starts', '~5th week'], ['Fracture share', 'most common long bone']],
+    conn: ['scapula-left', 'sternum', 'humerus-left', 'subclavian-left']
+  });
+  pair('humerus', {
+    aka: 'Arm bone', fn: 'The single bone of the upper arm. Its ball fits the shoulder socket so the limb can swing in every direction, and its lower end with the ulna forms the hinge that flexes and extends the elbow.',
+    facts: [
+      'The radial nerve runs in a groove around its shaft — that is why a mid-shaft fracture can cause a dropped wrist.',
+      'Its articular head is almost hemispherical, which is what buys the shoulder its huge range.',
+      'The elbow is a stable hinge held together mostly by ligaments, not by bone shape.'
+    ],
+    stats: [['Length', '~33 cm'], ['Bones in the segment', '1'], ['Elbow range', '0–150°']],
+    conn: ['scapula-left', 'radius-left', 'ulna-left', 'brachial-left']
+  });
+  pair('radius', {
+    aka: 'Thumb-side forearm bone', fn: 'The forearm bone on the thumb side. Unlike the ulna it turns: the radius swivels over the ulna to flip the palm up and down, which is what gives the human forearm its wrist rotation of about 180°.',
+    facts: [
+      'It carries the hand at the wrist joint, so falling on an outstretched hand breaks the radius most often.',
+      'Its rotation against the ulna is what turns a doorknob or a screwdriver.',
+      'Its lower end is the widest part of the wrist surface.'
+    ],
+    stats: [['Length', '~26 cm'], ['Rotation, pronation–supination', '~180°'], ['Wrist share of load', '~80%']],
+    conn: ['ulna-left', 'humerus-left', 'carpals-left', 'radial-left']
+  });
+  pair('ulna', {
+    aka: 'Little-finger-side forearm bone', fn: 'The forearm bone on the little-finger side and the one that forms the elbow joint proper. It acts as the stable axis that the radius spins around, so the forearm can rotate without the elbow moving.',
+    facts: [
+      'The olecranon at its top is the point of the elbow that you bang on a table.',
+      'It stays nearly still during pronation while the radius crosses over it.',
+      'Its lower end is separated from the wrist bones by a disc, so it carries little load.'
+    ],
+    stats: [['Length', '~28 cm'], ['Joint', 'hinge at the elbow'], ['Load at wrist', '~20%']],
+    conn: ['radius-left', 'humerus-left', 'carpals-left', 'ulnar-left']
+  });
+  pair('carpals', {
+    aka: 'Wrist bones', fn: 'Eight small bones arranged in two rows between the forearm and the hand. They form a flexible arch that lets the wrist bend in two directions and glide, and they move in a coordinated chain so the hand can angle without pinching.',
+    facts: [
+      'The scaphoid is the most commonly fractured carpal, and a break there can starve the bone of blood.',
+      'The carpal tunnel between them carries the median nerve and nine tendons.',
+      'Two rows of four: proximal (scaphoid, lunate, triquetrum, pisiform) and distal.'
+    ],
+    stats: [['Bones', '8 per wrist'], ['Tunnel contents', '1 nerve, 9 tendons'], ['Most fractured', 'scaphoid']],
+    conn: ['radius-left', 'ulna-left', 'metacarpals-left', 'median-nerve-left']
+  });
+  pair('metacarpals', {
+    aka: 'Palm bones', fn: 'Five long bones making up the palm and the knuckles. They fan out to give the hand its width, and the fifth one pivots so the little finger can be brought towards the thumb and the palm folded into a shovel.',
+    facts: [
+      'The fifth metacarpal has the most movement, producing the cupped hand.',
+      'A punch to a hard surface classically fractures the fifth metacarpal neck — a boxer’s fracture.',
+      'Their heads are the knuckles you can see when you clench a fist.'
+    ],
+    stats: [['Bones', '5 per hand'], ['Longest', '2nd metacarpal'], ['Hand length', '~19 cm']],
+    conn: ['carpals-left', 'finger-bones-left', 'forearm-flexors-left']
+  });
+  pair('finger-bones', {
+    aka: 'Phalanges of the hand', fn: 'Fourteen slim bones per hand forming the thumb and four fingers. Three bones each in the fingers and two in the thumb give the hand 27 degrees of freedom of bone movement, more than any other part of the body.',
+    facts: [
+      'The thumb has only two phalanges, which is why it can oppose rather than just curl.',
+      'The distal phalanges carry the nail beds and the pads of fingerprints.',
+      'The middle phalanx of a finger is the shortest of the three.'
+    ],
+    stats: [['Bones per hand', '14'], ['Thumb phalanges', '2'], ['Joints per hand', '14 finger joints']],
+    conn: ['metacarpals-left', 'carpals-left', 'median-nerve-left']
+  });
+  one('pelvis', {
+    aka: 'Hip bone, os coxae', fn: 'The ring of bone between the spine and the legs. Each side is a fusion of ilium, ischium and pubis, and the two halves meet at the front. It transfers the weight of the upper body into the legs, cradles the bladder and bowel, and in a woman is built to open for birth.',
+    facts: [
+      'The acetabulum — the hip socket — is deep, which is exactly why the hip is more stable than the shoulder.',
+      'The female pelvis is wider, with a sub-pubic angle near 90° against about 70° in the male.',
+      'Its bone surfaces thicken in response to load, which is why walking strengthens the hip.',
+      'The two halves fuse into single bones between the ages of 15 and 25.'
+    ],
+    stats: [['Bones fused per side', '3'], ['Symphysis movement', '1–2 mm'], ['Load at hip', '~3× body weight walking']],
+    conn: ['sacrum', 'femur-left', 'bladder', 'gluteus-left']
+  });
+  pair('femur', {
+    aka: 'Thigh bone', fn: 'The longest, heaviest and strongest bone in the body, carrying up to several times body weight with every step. Its head sits in the deep hip socket; its angled neck is the classic break of old age.',
+    facts: [
+      'It makes up about a quarter of a person’s height.',
+      'Its lower shaft is the strongest part of the bone: it takes more force to break than concrete.',
+      'A femoral neck fracture cuts off the blood supply to the head, so the bone often dies.'
+    ],
+    stats: [['Length', '~26% of height'], ['Load walking', '~3× body weight'], ['Neck angle', '~125°']],
+    conn: ['pelvis', 'tibia-left', 'patella-left', 'quadriceps-left', 'femoral-artery-left']
+  });
+  pair('patella', {
+    aka: 'Kneecap', fn: 'The largest sesamoid bone, embedded in the quadriceps tendon rather than joined to another bone. It acts as a pulley: it holds the tendon away from the knee so the quadriceps gains a longer lever arm when straightening the knee.',
+    facts: [
+      'Embedding in tendon means it can be removed surgically — the knee still works, just more weakly.',
+      'It increases the effective power of the quadriceps by roughly 30%.',
+      'It is the only bone in the body that sits entirely within a tendon.'
+    ],
+    stats: [['Size', '5 × 5 × 1 cm'], ['Power gain', '~30%'], ['Type', 'sesamoid']],
+    conn: ['quadriceps-left', 'femur-left', 'tibia-left']
+  });
+  pair('tibia', {
+    aka: 'Shin bone', fn: 'The weight-bearing bone of the lower leg and the second longest in the body. It carries the whole load of the leg and forms the hinge of the knee, and its front edge is the shin surface you can trace with a finger.',
+    facts: [
+      'The tibia, not the fibula, takes the weight of the leg.',
+      'Its shaft is triangular in section, which gives strength for a modest amount of bone.',
+      'An open tibial fracture is rare but dangerous, because skin lies directly over the bone.'
+    ],
+    stats: [['Length', '~22% of height'], ['Load share', '~100% of leg load'], ['Knee range', '0–140°']],
+    conn: ['femur-left', 'fibula-left', 'tarsals-left', 'tibial-artery-left']
+  });
+  pair('fibula', {
+    aka: 'Calf bone', fn: 'The slender bone on the outside of the lower leg. It bears almost no weight, but it is not redundant: it stabilises the ankle, gives twenty muscles a place to attach, and lets the shin rotate.',
+    facts: [
+      'It carries under 10% of the leg load but stabilises the ankle joint.',
+      'Its lower end forms the lateral malleolus, the knob on the outside of your ankle.',
+      'It can be removed for grafting without disabling the leg.'
+    ],
+    stats: [['Load share', 'under 10%'], ['Length', '~40 cm'], ['Role', 'stabiliser + lever']],
+    conn: ['tibia-left', 'tarsals-left', 'peroneal-nerve-left']
+  });
+  pair('tarsals', {
+    aka: 'Ankle and heel bones', fn: 'Seven bones forming the ankle and the back of the foot. The talus wears the leg’s weight and passes it to the heel and the arch; the calcaneus is the heel that lands first and acts as a spring.',
+    facts: [
+      'The talus is the only bone with no muscle attached — it is a pure load transmitter.',
+      'The calcaneus takes the whole impact of a jump, several times body weight.',
+      'Its shape creates the transverse arch that distributes body weight across the foot.'
+    ],
+    stats: [['Bones per foot', '7'], ['Impact at heel strike', '~2–3× body weight'], ['Foot arches', '2 main, 3 minor']],
+    conn: ['tibia-left', 'fibula-left', 'metatarsals-left']
+  });
+  pair('metatarsals', {
+    aka: 'Mid-foot bones', fn: 'Five long bones running from the tarsals to the toes. They spread the load of every step into a fan along the foot, bending slightly to store and return energy as you walk.',
+    facts: [
+      'The second and third metatarsals are the commonest stress-fracture sites in runners.',
+      'Their fan shape is what makes the foot work as a spring rather than a paddle.',
+      'The first metatarsal carries twice the load of any other bone in the foot.'
+    ],
+    stats: [['Bones per foot', '5'], ['Load, first metatarsal', '~2× the others'], ['Stress fracture site', '2nd/3rd']],
+    conn: ['tarsals-left', 'toe-bones-left', 'gastrocnemius-left']
+  });
+  pair('toe-bones', {
+    aka: 'Phalanges of the foot', fn: 'Fourteen short bones forming the toes. The big toe carries two and the rest three, giving the foot the push-off lever it needs to finish every step.',
+    facts: [
+      'The hallux has only two bones, like the thumb.',
+      'The toes supply the final push that lifts the body off the ground.',
+      'Toe bones are short and thick because they take shear rather than bending.'
+    ],
+    stats: [['Bones per foot', '14'], ['Big toe bones', '2'], ['Push-off share', '~40% of step propulsion']],
+    conn: ['metatarsals-left', 'tarsals-left', 'tibialis-left']
+  });
+})();
+
+/* =============================================================================
+   RECORDS — muscular system. Function, key facts, measured figures and the
+   structures each one works with. Runs inside the core closure.
+   ========================================================================== */
+(function () {
+  pair('triceps', {
+    aka: 'Three-headed arm muscle',
+    fn: 'The triceps brachii is the large muscle on the back of the upper arm. Its three heads — long, lateral and medial — converge on one tendon that wraps the elbow and hooks the olecranon of the ulna, straightening the arm.',
+    facts: [
+      'The long head crosses the shoulder joint, so it can pull the arm back as well as extend the elbow.',
+      'The medial head keeps working at low loads, giving a slow steady push where the other heads give a burst.',
+      'The long head’s tendon runs through the shoulder joint capsule and is a frequent source of deep shoulder pain.'
+    ],
+    stats: [['Heads', '3'], ['Elbow extension force', '~1,000 N'], ['Upper-arm mass share', '~60%']],
+    conn: ['humerus-left', 'ulna-left', 'scapula-left']
+  });
+  pair('forearm-extensors', {
+    aka: 'Wrist and finger extensors',
+    fn: 'A group of about a dozen muscles on the outer top of the forearm that straighten the wrist and open the fingers. Most share a tendon anchored to the lateral epicondyle of the humerus, which is why overuse there causes tennis elbow.',
+    facts: [
+      'The extensor digitorum sends four separate tendons across the back of the hand to the fingers.',
+      'Their common origin at the lateral epicondyle is the tender spot of tennis elbow.',
+      'Wrist extensors steady the wrist so the finger flexors can produce a strong grip without the wrist collapsing.'
+    ],
+    stats: [['Muscles in group', '11–12'], ['Wrist extension range', '~70°'], ['Force loss if paralysed', 'up to 50%']],
+    conn: ['humerus-left', 'radius-left', 'metacarpals-left']
+  });
+  pair('hamstrings', {
+    aka: 'Ischiocrural muscles',
+    fn: 'Three muscles at the back of the thigh — biceps femoris, semitendinosus and semimembranosus — that bend the knee and drive the leg backwards when you walk, run or jump. They cross both the hip and the knee, so they act on two joints at once.',
+    facts: [
+      'Their two-joint span means a sprint loads them hardest just as the leg reaches forward for the next stride.',
+      'The sciatic nerve runs down the back of the thigh between the hamstrings before splitting into its branches.',
+      'Most strains tear at the muscle–tendon junction near the ischial tuberosity, the bone you sit on.'
+    ],
+    stats: [['Muscles', '3'], ['Knee flexion range', '~140°'], ['Force in a sprint', '~3,000 N']],
+    conn: ['pelvis', 'femur-left', 'sciatic-nerve-left']
+  });
+  pair('erector', {
+    aka: 'Erector spinae',
+    fn: 'The erector spinae is a bundle of muscle columns running up the back on either side of the spine, from the sacrum to the base of the skull. It straightens the back and holds the trunk upright all day against gravity, so it tires more from stillness than from lifting.',
+    facts: [
+      'Each cross-section carries three columns stacked side by side: spinalis, longissimus and iliocostalis.',
+      'It is the chief antigravity muscle of the trunk, never fully silent while you sit or stand.',
+      'Its fibres fatigue within a few minutes of unsupported bending, which is what makes poor lifting posture risky.'
+    ],
+    stats: [['Columns', '3'], ['Mass, each side', '~500–700 g'], ['Tendon common origin', '~5 cm']],
+    conn: ['sacrum', 'lumbar-spine', 'pelvis']
+  });
+  pair('trapezius', {
+    aka: 'Shoulder shrug muscle',
+    fn: 'A large diamond-shaped sheet across the back of the neck and shoulders, running from the skull and spine out to the shoulder blade and collar bone. Its upper part shrugs the shoulders, the middle squeezes the blades together and the lower part steadies the arm in its socket.',
+    facts: [
+      'Its lower fibres rotate the shoulder blade upward, the movement that lets you raise an arm above your head.',
+      'It fires in a reflex spasm after a rear-end car crash, producing the classic whiplash stiff neck.',
+      'It shares its name with a shape in geometry because its two triangles meet over the spine.'
+    ],
+    stats: [['Parts', '3'], ['Shoulder elevation', '~60°'], ['Common trigger-point sites', '4 pairs']],
+    conn: ['cranium', 'scapula-left', 'clavicle-left']
+  });
+  pair('deltoid', {
+    aka: 'Shoulder cap',
+    fn: 'The triangular cap over the shoulder joint, with front, middle and rear heads. It is the main muscle that lifts the arm sideways away from the body, and each head also steers the arm in its own direction — forward, out or back.',
+    facts: [
+      'Only the middle head truly abducts the arm; the front head flexes it and the rear head extends it.',
+      'The deltoid cannot start abduction until the rotator cuff has stabilised the joint and carried the first degrees.',
+      'It is the muscle stretched around the upper arm for routine intramuscular injections in adults.'
+    ],
+    stats: [['Heads', '3'], ['Abduction range', '~180°'], ['Suitable injection depth', '25–40 mm']],
+    conn: ['scapula-left', 'clavicle-left', 'humerus-left']
+  });
+  pair('pectoralis', {
+    aka: 'Pectoralis major',
+    fn: 'The broad fan across the chest that pulls the arm forward, inward and across the body. It anchors to the collar bone, the sternum and the costal cartilages, and its tendon spirals onto the humerus as it inserts.',
+    facts: [
+      'The lower, sternal head twists behind the upper head at the insertion, so the tendon spirals onto the bone.',
+      'It both pulls the arm inward and rotates it inward, which is what makes it the power muscle of a bench press.',
+      'Pectoralis major and pectoralis minor are separate muscles; the minor lies underneath and lifts the ribs in a deep breath.'
+    ],
+    stats: [['Heads', '2'], ['Horizontal adduction', 'up to 45°'], ['Cross-sectional area', '~30 cm²']],
+    conn: ['sternum', 'clavicle-left', 'humerus-left']
+  });
+  pair('biceps', {
+    aka: 'Two-headed arm muscle',
+    fn: 'The two-headed muscle on the front of the upper arm. Its long head rises from the shoulder socket and its short head from the shoulder blade, and both merge into one belly that bends the elbow and turns the palm upward.',
+    facts: [
+      'It is the strongest supinator of the forearm, turning a key or a screwdriver palm-up.',
+      'Its long head’s tendon runs inside the shoulder joint capsule and is a common source of shoulder pain.',
+      'Although it bulges when you curl a weight, the brachialis underneath does most of the bending work.'
+    ],
+    stats: [['Heads', '2'], ['Elbow flexion force', '~150 N'], ['Share of supination', 'over 50%']],
+    conn: ['scapula-left', 'humerus-left', 'radius-left']
+  });
+  pair('forearm-flexors', {
+    aka: 'Wrist and finger flexors',
+    fn: 'The flexor group on the inner forearm that closes the hand and bends the wrist. It is anchored by a common tendon at the medial epicondyle and feeds long tendons through a fibrous band at the wrist into the fingers, where the real strength of a grip is generated.',
+    facts: [
+      'The two long flexors of the fingers thread eight tendons through the wrist, with a ninth for the thumb.',
+      'Grip strength is used as a quick bedside gauge of overall muscle strength and of general health risk.',
+      'Medial epicondylitis, golfer’s elbow, is the flexor group failing at its common anchor.'
+    ],
+    stats: [['Muscles', '~6'], ['Grip force, adult men', '~400–500 N'], ['Tendons crossing the wrist', '9']],
+    conn: ['humerus-left', 'ulna-left', 'carpals-left']
+  });
+  pair('latissimus', {
+    aka: 'Broadest back muscle',
+    fn: 'The widest muscle of the back, sweeping from the spine, the pelvis and the lower ribs up into a flat tendon on the front of the arm. Its pull brings the arm down and back toward the hip — the swimmer’s pull-down, the climbing haul and the drive of a rowing stroke.',
+    facts: [
+      'Its broad fan forms the back wall of the armpit, which you can feel with a raised arm.',
+      'It is among the largest muscles of the body by surface area and the main engine of a powerful pull-down.',
+      'Some people have a small extra slip, the axillary arch, that can pinch nerves and vessels under the arm.'
+    ],
+    stats: [['Width of origin', '~40 cm'], ['Mass, each side', '~350 g'], ['Tendon length', '~10 cm']],
+    conn: ['lumbar-spine', 'pelvis', 'humerus-left']
+  });
+  pair('serratus', {
+    aka: 'Serratus anterior',
+    fn: 'A fan of finger-like muscle slips wrapping the side of the rib cage from the first eight ribs back to the inner edge of the shoulder blade. It pulls the blade forward around the chest, the movement that lets you push, punch and reach ahead.',
+    facts: [
+      'Its nerve, the long thoracic, lies on the surface of the muscle, so a blow or surgery can paralyse it.',
+      'When the serratus fails, the shoulder blade lifts off the ribs and juts out, a winged scapula.',
+      'Its lowest slips interlock with the external oblique, stitching the chest wall to the abdominal wall.'
+    ],
+    stats: [['Slips', '8–10'], ['Humeral elevation', 'up to 180°'], ['Nerve roots', 'C5–C7']],
+    conn: ['ribs-true-left', 'scapula-left', 'humerus-left']
+  });
+  pair('oblique', {
+    aka: 'External oblique',
+    fn: 'The largest muscle of the abdominal wall, running diagonally from the lower ribs down and forward to the pelvis like hands in pockets. It curls the trunk forward, bends it sideways and rotates it to the opposite side, so it twists a throw or a golf swing.',
+    facts: [
+      'Its lowest fibres fold back on themselves to form the inguinal ligament, the groin crease the femoral vessels pass under.',
+      'The left external oblique rotates the trunk to the right, the basis of every twisting throw.',
+      'A plane of loose tissue separates it from the deeper internal oblique, a route surgeons follow in hernia repair.'
+    ],
+    stats: [['Fibre run', '10th rib to pelvis'], ['Trunk rotation', '~45°'], ['Inguinal ligament', '~12 cm']],
+    conn: ['ribs-false-left', 'pelvis', 'rectus-abdominis']
+  });
+  pair('gluteus', {
+    aka: 'Gluteus maximus',
+    fn: 'The large muscle of the buttock and the bulkiest muscle in the human body. It drives the hip backward to climb, sprint and rise from a squat, and it is nearly quiet when you walk on flat ground — its real work happens on stairs, hills and sprints.',
+    facts: [
+      'It is the single most powerful extensor of the hip and the largest muscle by mass in the body.',
+      'Human gluteus maximus is far larger than that of other primates, a change linked to upright running.',
+      'Its lower edge sits just above the sciatic nerve, which is why deep injections there are placed carefully.'
+    ],
+    stats: [['Mass, each side', '~800 g'], ['Hip extension', '~10–20°'], ['Of total body mass', '~3%']],
+    conn: ['pelvis', 'sacrum', 'femur-left']
+  });
+  pair('quadriceps', {
+    aka: 'Quadriceps femoris',
+    fn: 'Four muscles on the front of the thigh — rectus femoris, vastus lateralis, vastus medialis and vastus intermedius — that share one tendon and straighten the knee. Three heads rise from the femur alone and only the rectus femoris crosses the hip, so it alone also lifts the thigh.',
+    facts: [
+      'All four heads merge into the patellar tendon and pull the kneecap as a single unit.',
+      'The vastus medialis helps keep the kneecap tracking straight, and its weakness is a common cause of kneecap pain.',
+      'Measured through a knee machine, the quadriceps is the strongest muscle group in the body.'
+    ],
+    stats: [['Heads', '4'], ['Knee extension force', 'over 500 N'], ['Of thigh volume', '~70%']],
+    conn: ['femur-left', 'patella-left', 'tibia-left']
+  });
+  pair('gastrocnemius', {
+    aka: 'Calf muscle',
+    fn: 'The two-headed calf muscle that forms the bulge at the back of the shin. It rises above the knee and joins the soleus to form the Achilles tendon, pushing the foot down so you can stand on tiptoe, run and jump.',
+    facts: [
+      'It works with the soleus beneath it, and the two together are called the triceps surae.',
+      'Because it crosses the knee, bending the knee slackens it and cuts its power to push off.',
+      'Its tendon is the strongest in the body and stretches slightly with every step, storing energy like a spring.'
+    ],
+    stats: [['Heads', '2'], ['Achilles tendon length', '~15 cm'], ['Tendon force in running', '~3,000 N']],
+    conn: ['femur-left', 'tibia-left', 'tarsals-left']
+  });
+  pair('tibialis', {
+    aka: 'Tibialis anterior',
+    fn: 'The muscle on the front of the shin, alongside the shin bone, that lifts the foot toward the shin and turns the sole inward. It clears the toes from the ground during walking and lowers the foot under control as the heel lands.',
+    facts: [
+      'It is the muscle that fails in foot drop, when the deep peroneal nerve is injured near the knee or shin.',
+      'Its tendon crosses the front of the ankle under fibrous bands and is a frequent site of shin splints.',
+      'Its action of lifting the toes is dorsiflexion, the exact opposite of the calf’s push-off.'
+    ],
+    stats: [['Dorsiflexion range', '~20°'], ['Ankle inversion', '~30°'], ['Nerve roots', 'L4–L5']],
+    conn: ['tibia-left', 'tarsals-left', 'metatarsals-left']
+  });
+  pair('scm', {
+    aka: 'Sternocleidomastoid',
+    fn: 'The thick diagonal band running from the breastbone and collar bone up behind the ear. One side turns the head to the opposite side and tilts it toward the shoulder, while both together bend the neck forward and lift the chest in a hard breath.',
+    facts: [
+      'It divides the neck into the front and back triangles that surgeons use to find the great vessels.',
+      'In a newborn, a tight sternocleidomastoid pulls the head to one side, the posture called torticollis.',
+      'It is a neck accessory muscle of breathing, so it stands out in anyone struggling for air.'
+    ],
+    stats: [['Heads', '2'], ['Neck rotation each way', '~45°'], ['Innervated from', 'C2–C3']],
+    conn: ['sternum', 'clavicle-left', 'cranium']
+  });
+  pair('masseter', {
+    aka: 'Jaw-closing muscle',
+    fn: 'The square muscle you can feel bulging at the angle of the jaw when you clench your teeth. It is one of the strongest muscles for its size in the body, hauling the lower jaw up against the upper teeth.',
+    facts: [
+      'Two heads, superficial and deep, both run from the cheekbone down to the angle of the jaw.',
+      'Its own branch of the trigeminal nerve supplies it alone, and its reflex is the one tapped when testing that nerve.',
+      'Injecting it with botulinum toxin is a standard treatment for grinding the teeth at night.'
+    ],
+    stats: [['Bite force, molars', '~500 N'], ['Mass, each side', '~20 g'], ['Thickness', '~2 cm']],
+    conn: ['mandible', 'cranium', 'temporalis-left']
+  });
+  pair('temporalis', {
+    aka: 'Temple muscle',
+    fn: 'A fan-shaped muscle filling the hollow of the temple, running under the cheekbone arch to the front of the jaw hinge. It closes the jaw and pulls it back, and its position makes it one of the muscles behind a temple headache.',
+    facts: [
+      'Its tendon passes deep to the cheekbone arch, having once run through that arch in our reptile ancestors.',
+      'Its fibres fan over the whole temple, so it can shorten far more than its short tendon suggests.',
+      'It is a common source of temporal headache, and tender spots in it refer pain across the side of the head.'
+    ],
+    stats: [['Fibre groups', '3'], ['Share of bite force', '~30%'], ['Attachment width', '~8 cm']],
+    conn: ['mandible', 'cranium', 'masseter-left']
+  });
+  one('rectus-abdominis', {
+    aka: 'The six-pack',
+    fn: 'The paired strap of muscle running up the front of the belly from the pubis to the breastbone. It curls the trunk forward, and the crossing bands of tendon that cut it into blocks are what create the six-pack look.',
+    facts: [
+      'Its two halves are separated all the way up by the linea alba, so the left and right sides never meet.',
+      'The horizontal bands are fixed tendon, not gaps, so the number of blocks is set by anatomy, not by training.',
+      'It sits in a fibrous sleeve shared with the obliques, and that sleeve is what actually stops the belly bulging.'
+    ],
+    stats: [['Blocks per side', '3–4'], ['Trunk curl', '~40°'], ['Sheath layers', '2']],
+    conn: ['sternum', 'pelvis', 'transversus-abdominis']
+  });
+  one('transversus-abdominis', {
+    aka: 'The core corset',
+    fn: 'The deepest muscle of the abdominal wall, wrapping the belly horizontally from the lower back to the midline like a corset. It barely bends the trunk; instead it tightens the wall and raises the pressure inside the abdomen to steady the spine before a limb moves.',
+    facts: [
+      'It fires before the arm or leg moves in a healthy posture, bracing the spine in anticipation.',
+      'Its fibres squeeze the waist inward, the action shared by a cough, a lift and a weightlifting belt.',
+      'It is the muscle that drives the last of the breath out with force, and the one that fails in a hernia.'
+    ],
+    stats: [['Fibres anchored to', 'lower 6 ribs'], ['Cough pressure rise', '~100 mmHg'], ['Thickness', '~3 mm']],
+    conn: ['pelvis', 'rectus-abdominis', 'lumbar-spine']
+  });
+  one('diaphragm', {
+    aka: 'Primary breathing muscle',
+    fn: 'A dome of muscle and tendon that separates the chest from the abdomen. It is the primary muscle of breathing: when it flattens, the chest cavity widens and air is drawn in, and it works automatically about a dozen times a minute at rest.',
+    facts: [
+      'Its nerve is the phrenic nerve from C3, C4 and C5, the root levels that keep the diaphragm alive.',
+      'Its three main openings carry the aorta, the vena cava and the gullet between chest and abdomen.',
+      'A hiccup is a sudden involuntary diaphragm contraction cut off by the flap that shuts the airway.'
+    ],
+    stats: [['Breaths at rest', '12–16 per minute'], ['Dome excursion, quiet breathing', '~1.5 cm'], ['Nerve roots', 'C3–C5']],
+    conn: ['ribs-true-left', 'lumbar-spine', 'vena-cava-inferior']
+  });
+})();
+
+/* RECORDS — circulatory system. */
+(function () {
+  one('heart', {
+    aka: 'Cardiac pump',
+    fn: 'A four-chambered muscular pump. The right atrium and ventricle take deoxygenated blood back from the body and send it to the lungs; the left atrium and ventricle take oxygenated blood from the lungs and drive it into the aorta. Contraction starts at the sinoatrial node in the wall of the right atrium, so the chambers beat in sequence.',
+    facts: [
+      'The heart has its own blood supply: the right and left coronary arteries branch from the very first part of the aorta.',
+      'An adult heart weighs 250–350 g and beats about 100,000 times a day.',
+      'Cardiac output climbs from about 5 L/min at rest to more than 20 L/min in hard exercise.'
+    ],
+    stats: [['Mass', '250–350 g'], ['Output at rest', '~5 L/min'], ['Rate at rest', '60–100 beats/min']],
+    conn: ['aorta', 'pulmonary-trunk', 'vena-cava-superior']
+  });
+  one('aorta', {
+    aka: 'Great artery',
+    fn: 'The largest artery in the body. It leaves the left ventricle as the ascending aorta, arches over the heart and descends through the thorax and abdomen, ending where it splits into the two common iliac arteries. Its elastic wall stretches with every heartbeat and recoils between beats, keeping blood moving until the next pulse arrives.',
+    facts: [
+      'It leaves the heart about 2.5–3.5 cm across and narrows to roughly 2 cm by the abdomen.',
+      'Elastic recoil in its wall smooths the pulse into steadier flow, an effect called the Windkessel effect.',
+      'The pressure wave runs its whole length in about a tenth of a second, at roughly 4 m/s in a young adult.'
+    ],
+    stats: [['Ascending diameter', '2.5–3.5 cm'], ['Peak pressure', '~120 mmHg'], ['Bifurcation level', 'L4 vertebra']],
+    conn: ['heart', 'iliac-left', 'vena-cava-inferior']
+  });
+  one('pulmonary-trunk', {
+    aka: 'Lung artery',
+    fn: 'The great vessel that carries blood from the right ventricle to the lungs, and the only artery in the body that carries deoxygenated blood. It runs upward for about 5 cm and then divides into the left and right pulmonary arteries, one for each lung.',
+    facts: [
+      'It splits in front of the fourth thoracic vertebra into the left and right pulmonary arteries.',
+      'Its wall is thinner than the aortic wall because it works against about a fifth of the pressure.',
+      'The pulmonary valve at its base shuts when the right ventricle relaxes, preventing backflow.'
+    ],
+    stats: [['Length', '~5 cm'], ['Diameter', '~3 cm'], ['Systolic pressure', '~25 mmHg']],
+    conn: ['heart', 'lung-left', 'lung-right']
+  });
+  one('vena-cava-superior', {
+    aka: 'Upper great vein',
+    fn: 'The large vein that returns deoxygenated blood from the head, neck, both arms and the upper chest to the right atrium. It is formed behind the first rib where the two brachiocephalic veins join, and it empties into the top of the right atrium with no valve in the way.',
+    facts: [
+      'It is about 7 cm long and gathers blood from the head, the neck, both arms and the upper chest.',
+      'The azygos vein joins its lower end, adding blood from the chest wall and the tissues of the back.',
+      'Having no valve, it carries blood purely on the pressure difference between the chest and the right atrium.'
+    ],
+    stats: [['Length', '~7 cm'], ['Diameter', '~2 cm'], ['Upper-body return', '~1/3 of venous flow']],
+    conn: ['heart', 'subclavian-left', 'jugular-left']
+  });
+  one('vena-cava-inferior', {
+    aka: 'Lower great vein',
+    fn: 'The largest vein in the body. It is created by the joining of the two common iliac veins at about the fifth lumbar vertebra, climbs the abdomen on the right of the aorta, pierces the diaphragm and empties into the right atrium. Everything below the diaphragm drains through it.',
+    facts: [
+      'It is formed at about L5 by the union of the two common iliac veins.',
+      'The right gonadal vein empties straight into it, while the left one drains into the left renal vein.',
+      'It pierces the central tendon of the diaphragm at T8 and enters the right atrium just above the liver.'
+    ],
+    stats: [['Diameter', '~2.5 cm'], ['Length', '~25 cm'], ['Pressure in the chest', '2–6 mmHg']],
+    conn: ['vena-cava-superior', 'liver', 'iliac-left']
+  });
+  one('portal-vein', {
+    aka: 'Liver vein',
+    fn: 'The vein that carries nutrient-rich blood from the gut, spleen and pancreas to the liver, so the liver sees everything absorbed from a meal before it reaches the rest of the body. Roughly 1.1 L/min flows through it, and it supplies about three quarters of the blood the liver receives.',
+    facts: [
+      'About 75% of the blood reaching the liver arrives through the portal vein, the rest by the hepatic artery.',
+      'It is formed behind the neck of the pancreas by the union of the splenic and superior mesenteric veins.',
+      'It has no valves, so scarring in the liver raises pressure here and can push blood into veins in the gullet.'
+    ],
+    stats: [['Blood flow', '~1.1 L/min'], ['Length', '~8 cm'], ['Pressure', '5–10 mmHg']],
+    conn: ['liver', 'small-intestine', 'spleen']
+  });
+
+  pair('carotid', {
+    aka: 'Neck artery',
+    fn: 'The common carotid artery is the main supply to the head and brain. It climbs the neck beside the jugular vein and divides at the upper border of the thyroid cartilage into the internal carotid, which feeds the brain and the eye, and the external carotid, which feeds the face, scalp and neck.',
+    facts: [
+      'The internal carotid artery gives off no branches at all while it passes through the neck.',
+      'Stretch receptors in the carotid sinus at the bifurcation report blood pressure to the brainstem.',
+      'Pressing hard on the sinus can slow the heart and drop blood pressure enough to cause a faint.'
+    ],
+    stats: [['Diameter', '6–8 mm'], ['Bifurcation level', 'C4 vertebra'], ['Brain flow share', '~15% of output']],
+    conn: ['aorta', 'cervical-spine', 'brainstem']
+  });
+  pair('jugular', {
+    aka: 'Neck vein',
+    fn: 'The internal jugular vein is the largest vein in the neck. It leaves the skull through the jugular foramen, runs down beside the common carotid artery carrying blood from the brain, face and neck, and joins the subclavian vein to form the brachiocephalic vein.',
+    facts: [
+      'It drains almost all the venous blood leaving the brain, which makes it the widest vein in the neck.',
+      'It is the usual route for a central venous line because it is wide, straight and easy to reach.',
+      'Its bulge above the collarbone is the jugular venous pressure, which rises visibly when the heart fails.'
+    ],
+    stats: [['Diameter', '~1.5 cm'], ['Central venous pressure', '2–6 mmHg'], ['Brain drainage share', '~70%']],
+    conn: ['subclavian-left', 'vena-cava-superior', 'cerebrum']
+  });
+  pair('subclavian', {
+    aka: 'Under-clavicle vessels',
+    fn: 'A paired artery and vein that pass under the clavicle and over the first rib, carrying blood out to the arm and back again. The vein lies in front of the artery and the nerves of the brachial plexus run behind, so all three are packed into a narrow gateway at the top of the chest.',
+    facts: [
+      'The artery becomes the axillary artery as soon as it crosses the outer edge of the first rib.',
+      'The arm nerves run between the artery and the scalene muscles, so injuries here damage both.',
+      'The vein is a common site for central lines and pacemaker leads because it is wide and constant.'
+    ],
+    stats: [['Artery diameter', '6–10 mm'], ['Vein diameter', '~1.2 cm'], ['Pressure at rest', '~120/80 mmHg']],
+    conn: ['clavicle-left', 'humerus-left', 'vena-cava-superior']
+  });
+  pair('brachial', {
+    aka: 'Arm artery',
+    fn: 'The main artery of the upper arm. It runs from the armpit down the inner side of the biceps to the crease of the elbow, giving off branches to the arm muscles, and ends about a centimetre below the elbow where it splits into the radial and ulnar arteries.',
+    facts: [
+      'It lies over the shaft of the humerus with the median nerve beside it, so a mid-arm fracture is dangerous.',
+      'A blood pressure cuff measures the pressure inside this artery by squeezing it shut and letting it open again.',
+      'It is the second choice for arterial blood gas sampling when the radial artery cannot be used.'
+    ],
+    stats: [['Diameter', '4–5 mm'], ['Systolic pressure', '~120 mmHg'], ['Split point', '1 cm below the elbow crease']],
+    conn: ['humerus-left', 'radial-left', 'ulnar-left']
+  });
+  pair('radial', {
+    aka: 'Wrist pulse artery',
+    fn: 'The radial artery runs down the thumb side of the forearm and wraps around the wrist into the palm, where it joins the ulnar artery in the palmar arches. Its pulse is the one taken at the wrist, and it is the standard artery for blood gas sampling and for monitoring lines in intensive care.',
+    facts: [
+      'The pulse is felt between the tendon of the flexor carpi radialis and the outer edge of the radius.',
+      'An Allen test checks that the ulnar artery can carry the whole hand before the radial is used for a line.',
+      'It is cannulated more often than any other artery and is the usual site for an arterial pressure line.'
+    ],
+    stats: [['Diameter', '2–3 mm'], ['Pulse rate', '60–100 beats/min'], ['Depth below skin', '~5 mm']],
+    conn: ['radius-left', 'ulnar-left', 'metacarpals-left']
+  });
+  pair('ulnar', {
+    aka: 'Inner forearm artery',
+    fn: 'The ulnar artery runs down the little-finger side of the forearm with the ulnar nerve and passes into the palm beside the pisiform bone. It is usually the larger of the two forearm arteries and carries most of the blood to the hand, joining the radial artery in two arches in the palm.',
+    facts: [
+      'It is usually bigger than the radial artery and, with it, forms the superficial and deep palmar arches.',
+      'In the lower forearm it is covered only by skin and fascia, so it counts as the surface artery there.',
+      'Its companion nerve passes behind the inner bump of the elbow, which is why a knock there tingles in the little finger.'
+    ],
+    stats: [['Diameter', '2–4 mm'], ['Palmar arches formed', '2 with the radial'], ['Nerve companion', 'ulnar nerve, C8–T1']],
+    conn: ['radius-left', 'radial-left', 'carpals-left']
+  });
+  pair('cephalic', {
+    aka: 'Outer arm vein',
+    fn: 'A long superficial vein of the arm. It starts at the thumb side of the wrist, climbs the outer border of the forearm and upper arm, and drains into the axillary vein after passing through the groove between the deltoid and pectoralis major muscles.',
+    facts: [
+      'It sits close to the surface, which makes it one of the easiest veins for an intravenous cannula.',
+      'At the elbow it connects to the basilic vein through the median cubital vein across the crease.',
+      'Its upper part runs in the deltopectoral groove, which surgeons follow to find the axillary vein.'
+    ],
+    stats: [['Diameter', '3–6 mm'], ['Typical cannula', '18–20 G'], ['Venous pressure', '5–15 mmHg']],
+    conn: ['radius-left', 'humerus-left', 'subclavian-left']
+  });
+  pair('renal-artery', {
+    aka: 'Kidney artery',
+    fn: 'The renal arteries branch from the aorta at about the level of the second lumbar vertebra and carry blood to the kidneys. Although the kidneys are small organs, they take about a fifth of the cardiac output, roughly 1.2 L/min, because they filter the whole blood volume many times a day.',
+    facts: [
+      'The kidneys receive about 20% of cardiac output, close to 1.2 L/min at rest.',
+      'Each renal artery divides into segmental branches inside the kidney, so one segment can be removed without losing the rest.',
+      'An extra renal artery is present in about a quarter of people and is a hazard in kidney surgery.'
+    ],
+    stats: [['Flow per kidney', '~600 mL/min'], ['Share of output', '~20%'], ['Take-off level', 'L2 vertebra']],
+    conn: ['aorta', 'kidney-left', 'kidney-right']
+  });
+  pair('iliac', {
+    aka: 'Pelvic artery',
+    fn: 'The two common iliac arteries are the branches into which the aorta splits at the level of the fourth lumbar vertebra. Each runs down and outward for about 5 cm, then divides again into the internal iliac artery for the pelvic organs and the external iliac artery for the leg.',
+    facts: [
+      'The aortic split lies in front of the fourth lumbar vertebra, at roughly the level of the navel.',
+      'The external iliac artery becomes the femoral artery as it passes under the inguinal ligament.',
+      'The internal iliac artery supplies the bladder, the rectum, the reproductive organs and the buttock muscles.'
+    ],
+    stats: [['Length of each', '~5 cm'], ['Bifurcation level', 'L4 vertebra'], ['Diameter at origin', '~1 cm']],
+    conn: ['aorta', 'lumbar-spine', 'pelvis']
+  });
+  pair('femoral-artery', {
+    aka: 'Groin artery',
+    fn: 'The main artery of the leg. It begins where the external iliac artery passes under the inguinal ligament, runs down the front of the thigh beside the femoral vein, and continues behind the knee as the popliteal artery. Its pulse is easily felt in the groin.',
+    facts: [
+      'The groin pulse is felt midway between the pubic bone and the front point of the hip bone.',
+      'Heart catheterisation is often done through it, and it is used for arterial lines and emergency access.',
+      'Because it lies in a tight sheath with the vein, bleeding from a high thigh wound is hard to stop by pressure alone.'
+    ],
+    stats: [['Diameter in groin', '~8 mm'], ['Catheter sheath size', '4–8 Fr'], ['Popliteal pressure', '~10 mmHg lower than the arm']],
+    conn: ['pelvis', 'femoral-vein-left', 'femur-left']
+  });
+  pair('femoral-vein', {
+    aka: 'Thigh vein',
+    fn: 'The great vein of the leg. It runs beside the femoral artery down the thigh, collecting blood from the whole limb, and becomes the external iliac vein above the inguinal ligament. It is the vessel in which deep vein thrombosis most often forms after surgery or a long spell of immobility.',
+    facts: [
+      'It lies in the same sheath as the femoral artery, which makes it a reliable target for central lines.',
+      'A clot in the thigh veins can break loose and travel to the lungs as a pulmonary embolism.',
+      'Blood is pushed back up by the calf muscle pump, so stillness is what allows clots to form.'
+    ],
+    stats: [['Diameter in groin', '~1.2 cm'], ['Line sheath size', '6–8 Fr'], ['Venous pressure', '5–15 mmHg']],
+    conn: ['femoral-artery-left', 'saphenous-left', 'pelvis']
+  });
+  pair('saphenous', {
+    aka: 'Long leg vein',
+    fn: 'The great saphenous vein is the longest vein in the body. It starts on the inner side of the foot and runs the whole length of the inner leg and thigh to join the femoral vein in the groin, and it is the vessel harvested to bypass blocked coronary arteries.',
+    facts: [
+      'It runs up the inner side of the leg with the saphenous nerve crossing beside it.',
+      'Surgeons harvest it for coronary artery bypass grafts, often through small spaced incisions.',
+      'When its valves fail it becomes a varicose vein, and it can be stripped or sealed with laser or foam.'
+    ],
+    stats: [['Length', '~60 cm'], ['Diameter at the ankle', '4–5 mm'], ['Valves', '10–20 pairs']],
+    conn: ['femoral-vein-left', 'tibia-left', 'metatarsals-left']
+  });
+  pair('tibial-artery', {
+    aka: 'Below-knee arteries',
+    fn: 'Behind the knee the popliteal artery divides into the anterior and posterior tibial arteries, which run down the front and the back of the leg into the foot. The posterior tibial artery passes behind the inner ankle bone, where its pulse can be felt, and both are checked with a Doppler when the circulation of a leg is in doubt.',
+    facts: [
+      'The posterior tibial pulse is felt just behind the inner ankle bone, the medial malleolus.',
+      'The anterior tibial artery crosses the ankle to become the dorsalis pedis artery on the top of the foot.',
+      'Narrowed tibial arteries cause pain in the calf on walking and are the usual finding in leg artery disease.'
+    ],
+    stats: [['Diameter', '2–3 mm'], ['Ankle-brachial index', '0.9–1.3 normal'], ['Doppler probe', '8 MHz']],
+    conn: ['femoral-artery-left', 'tibia-left', 'metatarsals-left']
+  });
+})();
+
+/* =============================================================================
+   RECORDS — nervous system. Brain, cord and the peripheral nerves a front
+   view can show. Runs inside the core closure.
+   ========================================================================== */
+(function () {
+  one('cerebellum', {
+    aka: 'Little brain', fn: 'The cerebellum sits at the back of the skull beneath the cerebrum, its surface pleated into fine parallel ridges. It smooths and corrects movement, holds balance and posture, and compares the intended motion with the actual one many times a second.',
+    facts: [
+      'It takes up only about 10% of brain volume yet holds over half of the brain’s neurons.',
+      'Its Purkinje cells are among the largest and most branched cells in the nervous system.',
+      'Damage here disturbs coordination and balance without causing paralysis or loss of feeling.'
+    ],
+    stats: [['Share of brain volume', '~10%'], ['Share of brain neurons', 'over 50%'], ['Granule cells', '~50 billion']],
+    conn: ['cerebrum', 'brainstem', 'spinal-cord']
+  });
+  one('cerebrum', {
+    aka: 'Forebrain, two hemispheres', fn: 'The cerebrum is the two-hemisphere mass capping the brain, the halves joined across the middle by a thick bridge of fibres. Its folded outer layer is the cerebral cortex, the seat of conscious sensation, voluntary movement, language, memory and reasoning.',
+    facts: [
+      'It is split into left and right hemispheres and four lobes each: frontal, parietal, temporal and occipital.',
+      'The folded cortex packs roughly 2,500 cm² of surface into the skull, a third of it exposed and two thirds hidden in the grooves.',
+      'Its grey matter is only 2–4 mm thick, yet the brain takes about 20% of the body’s oxygen and glucose.'
+    ],
+    stats: [['Hemispheres', '2'], ['Cortical thickness', '2–4 mm'], ['Neurons in the brain', '~86 billion']],
+    conn: ['cerebellum', 'brainstem', 'cranium']
+  });
+  one('brainstem', {
+    aka: 'Midbrain, pons and medulla', fn: 'The brainstem is the stalk that joins the brain to the spinal cord, built from the midbrain, the pons and the medulla oblongata. It carries every signal passing between brain and body and runs the automatic functions that keep a person alive.',
+    facts: [
+      'It sets the rhythm of breathing and controls heart rate and blood pressure without conscious input.',
+      'All twelve pairs of cranial nerves except the first two arise from or end in the brainstem.',
+      'Damage here is the most dangerous of brain injuries because the vital centres sit within it.'
+    ],
+    stats: [['Parts', '3 (midbrain, pons, medulla)'], ['Cranial nerves attached', '10 of 12'], ['Length', '~7 cm']],
+    conn: ['cerebrum', 'cerebellum', 'spinal-cord']
+  });
+  one('spinal-cord', {
+    aka: 'Medulla spinalis', fn: 'The spinal cord runs from the base of the skull down a bony tunnel in the spine, carrying voluntary commands out to the body and sensation back in. It tapers to a point called the conus medullaris around the first or second lumbar vertebra.',
+    facts: [
+      'It gives off 31 pairs of spinal nerves, one pair for each segment along its length.',
+      'Below its tapered end, nerve roots continue downward as the cauda equina, the horse’s tail.',
+      'Ascending tracts carry sensation upward and descending tracts carry motor commands downward.'
+    ],
+    stats: [['Spinal nerve pairs', '31'], ['Length', '~45 cm'], ['Lower end', 'L1–L2 conus medullaris']],
+    conn: ['brainstem', 'cervical-spine', 'lumbar-spine']
+  });
+  one('intercostal-nerves', {
+    aka: 'Rib nerves', fn: 'The intercostal nerves are the front branches of the first eleven thoracic spinal nerves. Each runs under one rib around the chest wall, supplying the muscles between the ribs, the skin of that band and part of the abdominal wall.',
+    facts: [
+      'They run from T1 to T11, and each one supplies its own band of skin, called a dermatome, around the trunk.',
+      'They drive the intercostal muscles that lift the ribs and pull the chest open during quiet breathing.',
+      'The lowest of them continue forward into the abdominal wall and supply muscles there.'
+    ],
+    stats: [['Spinal segments', 'T1–T11'], ['Pairs', '11'], ['Dermatomes', '1 per nerve']],
+    conn: ['thoracic-spine', 'spinal-cord', 'rectus-abdominis']
+  });
+  pair('vagus', {
+    aka: 'Cranial nerve X', fn: 'The vagus is the tenth cranial nerve and the longest of them all, wandering from the brainstem down the neck into the chest and abdomen. It carries the main parasympathetic signals that slow the heart, narrow the airways and set digestion going.',
+    facts: [
+      'It is cranial nerve X, the longest cranial nerve, reaching from the brainstem as far as the colon.',
+      'Its fibres slow the heart, feed the lungs and start the gut moving and secreting.',
+      'About 80% of its fibres are sensory, carrying information from the organs back to the brain.'
+    ],
+    stats: [['Cranial nerve number', 'X (10th)'], ['Sensory fibres', '~80%'], ['Longest of cranial nerves', '1 of 12']],
+    conn: ['brainstem', 'heart', 'stomach']
+  });
+  pair('optic-nerve', {
+    aka: 'Cranial nerve II', fn: 'The optic nerve is the second cranial nerve, and it is not a nerve in the ordinary sense: it is a tract of brain tissue carrying the retina’s output back to the brain. Each one leaves the eye at the blind spot and runs to the optic chiasm.',
+    facts: [
+      'It carries about 1.2 million nerve fibres from each eye, one for every retinal ganglion cell.',
+      'Because it is brain tissue, it is wrapped in the same meninges as the brain itself.',
+      'At the optic chiasm about half of its fibres cross over to the other side of the brain.'
+    ],
+    stats: [['Cranial nerve number', 'II (2)'], ['Fibres per nerve', '~1.2 million'], ['Crossing at the chiasm', '~50%']],
+    conn: ['eye-left', 'cerebrum', 'carotid-left']
+  });
+  pair('eye', {
+    aka: 'Sense organ of sight', fn: 'The eye is the sensory end-organ of the optic nerve, a fluid-filled sphere that focuses light onto a sheet of photoreceptors. The cornea and the lens bend incoming light, and the retina turns it into nerve signals.',
+    facts: [
+      'Each retina holds about 120 million rods for dim light and about 6 million cones for colour.',
+      'The cones are crowded into the fovea, a small pit that gives the sharpest central vision.',
+      'The two eyes overlap to give a binocular field of roughly 200 degrees with depth perception.'
+    ],
+    stats: [['Rods per eye', '~120 million'], ['Cones per eye', '~6 million'], ['Binocular field', '~200°']],
+    conn: ['optic-nerve-left', 'cerebrum', 'cranium']
+  });
+  pair('brachial-plexus', {
+    aka: 'Nerve web of the arm', fn: 'The brachial plexus is the web of nerves formed by the lower four cervical and the first thoracic roots, C5 to T1. It rearranges those roots into the nerves that run the whole arm, from the shoulder to the fingertips.',
+    facts: [
+      'Its roots run from C5 to T1 and are rebuilt into trunks, divisions, cords and finally branches.',
+      'Injury to the upper roots gives Erb’s palsy, leaving the arm hanging with the hand turned inward.',
+      'Injury to the lowest root, T1, gives Klumpke’s palsy and a paralysed hand.'
+    ],
+    stats: [['Roots', 'C5–T1'], ['Spinal segments', '5'], ['Terminal branches', '5 major']],
+    conn: ['cervical-spine', 'clavicle-left', 'humerus-left']
+  });
+  pair('median-nerve', {
+    aka: 'Wrist nerve', fn: 'The median nerve is one of the main nerves of the forearm and hand, formed from the C5 to T1 roots of the brachial plexus. It bends the wrist, drives most of the thumb muscles and gives feeling to the palm side of the hand.',
+    facts: [
+      'It passes through the carpal tunnel at the wrist, where squeezing it numbs the thumb, index, middle and half of the ring finger.',
+      'It supplies the muscles that move the thumb, so injury flattens the fleshy mound at the thumb base.',
+      'Its sensory territory stops short of the little finger, which is served by the ulnar nerve.'
+    ],
+    stats: [['Roots', 'C5–T1'], ['Digits numbed in carpal tunnel', '3½ of 5'], ['Conduction speed', '~50 m/s']],
+    conn: ['forearm-flexors-left', 'carpals-left', 'brachial-plexus-left']
+  });
+  pair('ulnar-nerve', {
+    aka: 'Funny-bone nerve', fn: 'The ulnar nerve runs down the inner side of the arm and passes behind the bony knob at the inside of the elbow, the medial epicondyle. It supplies most of the small muscles of the hand and the feeling of the little finger.',
+    facts: [
+      'It passes behind the medial epicondyle, the spot known as the funny bone, where it has almost no protection.',
+      'It drives most of the intrinsic hand muscles, so damage produces a claw hand with the ring and little fingers bent.',
+      'It supplies feeling to the little finger and half of the ring finger.'
+    ],
+    stats: [['Roots', 'C8–T1'], ['Intrinsic hand muscles', 'over 15'], ['Sensory digits', '1½ of 5']],
+    conn: ['ulna-left', 'humerus-left', 'carpals-left']
+  });
+  pair('radial-nerve', {
+    aka: 'Spiral nerve', fn: 'The radial nerve is the largest branch of the brachial plexus and spirals around the shaft of the humerus in a groove named after it. It straightens the wrist and fingers and supplies the skin over the back of the arm and hand.',
+    facts: [
+      'It winds around the humerus in the spiral groove, so a mid-shaft fracture can trap or tear it.',
+      'It extends the wrist and fingers, and injury leaves a wrist drop with the hand flopping down.',
+      'It is a branch of the posterior cord of the brachial plexus, carrying C5 to T1 fibres.'
+    ],
+    stats: [['Roots', 'C5–T1'], ['Muscles supplied', '~13'], ['Spiral groove length', '~5 cm']],
+    conn: ['humerus-left', 'triceps-left', 'brachial-plexus-left']
+  });
+  pair('femoral-nerve', {
+    aka: 'Thigh nerve', fn: 'The femoral nerve forms inside the abdomen from the L2 to L4 roots and passes under the groin ligament into the front of the thigh. It flexes the hip and straightens the knee and carries sensation from the front of the thigh and the inner leg.',
+    facts: [
+      'It comes from the L2 to L4 roots and is the main nerve of the front of the thigh.',
+      'It straightens the knee by driving the quadriceps, so injury makes the knee buckle when weight is put on it.',
+      'A femoral nerve block is widely used to numb the leg for knee surgery.'
+    ],
+    stats: [['Roots', 'L2–L4'], ['Quadriceps heads driven', '4'], ['Largest branch', '1 (saphenous)']],
+    conn: ['lumbar-spine', 'quadriceps-left', 'femur-left']
+  });
+  pair('sciatic-nerve', {
+    aka: 'Largest nerve in the body', fn: 'The sciatic nerve is the largest and thickest nerve in the body, formed from the L4 to S3 roots. It leaves the pelvis through the buttock and runs down the back of the thigh before splitting into the tibial and common peroneal nerves.',
+    facts: [
+      'It is about 2 cm wide at its thickest and runs from the buttock to just above the knee.',
+      'It splits into the tibial and common peroneal nerves, which then continue down the leg.',
+      'A slipped disc at L4/L5 or L5/S1 presses on its roots and produces the pain called sciatica.'
+    ],
+    stats: [['Roots', 'L4–S3'], ['Width', '~2 cm'], ['Terminal branches', '2']],
+    conn: ['pelvis', 'sacrum', 'femur-left']
+  });
+  pair('tibial-nerve', {
+    aka: 'Calf and sole nerve', fn: 'The tibial nerve is the larger of the two branches of the sciatic nerve and continues straight down the back of the leg. It drives the calf and the small muscles of the sole and supplies feeling to the heel and the sole of the foot.',
+    facts: [
+      'It is the larger terminal branch of the sciatic nerve and runs down the back of the calf.',
+      'It supplies the calf muscles that point the foot, so it powers the push-off step of walking.',
+      'It passes behind the inner ankle through the tarsal tunnel, where compression causes sole pain.'
+    ],
+    stats: [['Roots', 'L4–S3'], ['Plantar branches', '2'], ['Calf muscles supplied', '~6']],
+    conn: ['sciatic-nerve-left', 'tibia-left', 'gastrocnemius-left']
+  });
+  pair('peroneal-nerve', {
+    aka: 'Common peroneal nerve', fn: 'The common peroneal nerve is the smaller branch of the sciatic nerve and runs down the outer side of the knee. It wraps around the neck of the fibula just under the skin before dividing to lift the foot and toes.',
+    facts: [
+      'It wraps around the fibular neck, where it lies right under the skin and is easily injured by a fracture there.',
+      'It lifts the foot and toes, so its injury causes foot drop and a slapping walk.',
+      'It supplies feeling to the outer side of the lower leg and the top of the foot.'
+    ],
+    stats: [['Roots', 'L4–S2'], ['Divisions', '2'], ['Fibular neck wrap', '~3 cm']],
+    conn: ['fibula-left', 'sciatic-nerve-left', 'tibialis-left']
+  });
+})();
+
+/* =============================================================================
+   RECORDS — organs. Thoracic and abdominal viscera.
+   ========================================================================== */
+(function () {
+  one('lung-right', {
+    aka: 'Right lung', fn: 'The larger lung, with three lobes and a straighter airway into it. It breathes for roughly 55% of gas exchange, and because the heart leans left it has more room than its partner.',
+    facts: [
+      'Three lobes: upper, middle and lower — the middle lobe is the only one with a horizontal fissure.',
+      'The right main bronchus is wider and steeper, so inhaled objects travel there most often.',
+      'It contains about 300 million alveoli with a surface area near 70 m².'
+    ],
+    stats: [['Lobes', '3'], ['Share of gas exchange', '~55%'], ['Alveolar surface', '~70 m²']],
+    conn: ['lung-left', 'bronchi', 'ribs-true-right', 'pulmonary-trunk']
+  });
+  one('lung-left', {
+    aka: 'Left lung', fn: 'The smaller lung: two lobes and a concave notch carved out of its front edge to leave room for the heart. That notch is why the left lung holds slightly less air than the right.',
+    facts: [
+      'Two lobes only, because the heart takes the space where the third would be.',
+      'The cardiac notch is a permanent impression of the heart against the lung.',
+      'Lung capacity is driven by leaning and expansion to their full size.'
+    ],
+    stats: [['Lobes', '2'], ['Share of gas exchange', '~45%'], ['Tidal volume contribution', '~500 mL per breath']],
+    conn: ['lung-right', 'heart', 'ribs-true-left', 'pulmonary-trunk']
+  });
+  one('trachea', {
+    aka: 'Windpipe', fn: 'A cartilage-reinforced tube running from the larynx to the bronchi. Its 16–20 C-shaped rings hold the airway open so air can pass whether you inhale or exhale, and the soft back wall lets the oesophagus bulge as food goes down.',
+    facts: [
+      'The C-shaped rings are cartilage: they keep the tube from collapsing.',
+      'The lining sweeps mucus upward at about 1 cm per minute, carrying trapped particles out.',
+      'It is roughly the width of a finger and splits at about the level of the fourth thoracic vertebra.'
+    ],
+    stats: [['Length', '10–12 cm'], ['Cartilage rings', '16–20'], ['Diameter', '~2 cm']],
+    conn: ['bronchi', 'lung-right', 'hyoid', 'thymus']
+  });
+  one('bronchi', {
+    aka: 'Airway branches', fn: 'The two main tubes into the lungs, produced where the trachea forks. Each one divides again and again — 23 generations of branching — until the passages end in the alveoli where gas exchange happens.',
+    facts: [
+      'The right bronchus is wider and steeper because the right lung is bigger.',
+      'They branch about 23 times before reaching the alveoli.',
+      'Their smooth muscle can constrict violently in an asthma attack.'
+    ],
+    stats: [['Main branches', '2'], ['Branch generations', '~23'], ['Right vs left angle', 'steeper, wider']],
+    conn: ['trachea', 'lung-right', 'lung-left']
+  });
+  one('thymus', {
+    aka: 'Immune school', fn: 'A two-lobed gland behind the sternum where T-lymphocytes learn to recognise the body’s own tissue. Busiest before puberty, it then shrinks and is largely replaced by fat — the reason immune memory is set early.',
+    facts: [
+      'It is largest in childhood and shrinks progressively from puberty.',
+      'It is where T-cells are tested and the self-attacking ones are destroyed.',
+      'It is one of the few organs that is deliberately programmed to shrink.'
+    ],
+    stats: [['Peak size', '20–30 g in childhood'], ['Adult size', 'under 10 g'], ['T-cell training', 'millions per day']],
+    conn: ['sternum', 'heart', 'trachea']
+  });
+  one('liver', {
+    aka: 'Hepar', fn: 'The largest internal organ and the body’s chemical factory. It filters everything absorbed from the gut through the portal vein, stores and releases glucose, builds plasma proteins and clotting factors, and makes bile to digest fat.',
+    facts: [
+      'It performs over 500 known functions and receives about 1.4 litres of blood a minute.',
+      'It is the only human organ that can regrow: up to 70% can be removed and will return.',
+      'The right lobe is six times the size of the left, which is why the liver sits mostly on the right.'
+    ],
+    stats: [['Mass', '1.4–1.6 kg'], ['Blood flow', '~1.4 L/min'], ['Regeneration', 'up to 70% removed']],
+    conn: ['gallbladder', 'portal-vein', 'stomach', 'small-intestine', 'ribs-true-right']
+  });
+  one('gallbladder', {
+    aka: 'Bile sac', fn: 'A small pear-shaped sac tucked under the liver. It stores bile, concentrates it up to ten times, and squeezes it into the duodenum when fatty food arrives.',
+    facts: [
+      'A typical adult makes about 800 mL of bile a day, but stores only 30–50 mL.',
+      'Stones form here more often in women, in people over forty and in the overweight.',
+      'It is an organ that can be removed entirely without changing digestion much.'
+    ],
+    stats: [['Capacity', '30–50 mL'], ['Concentration', 'up to 10×'], ['Daily bile', '~800 mL']],
+    conn: ['liver', 'pancreas', 'small-intestine']
+  });
+  one('pancreas', {
+    aka: 'Digestive and sugar gland', fn: 'A long gland lying behind the stomach that works as two organs at once: the exocrine part makes digestive enzymes for fat, protein and starch, while the endocrine islets release insulin and glucagon to hold blood sugar steady.',
+    facts: [
+      'It produces around 1.5 litres of enzyme-rich juice each day.',
+      'The islets make up only about 2% of its mass but control all of glucose metabolism.',
+      'Its enzymes are released inactive, so the gland does not digest itself.'
+    ],
+    stats: [['Length', '15–20 cm'], ['Digestive juice', '~1.5 L/day'], ['Islet cells', '~1 million']],
+    conn: ['stomach', 'small-intestine', 'liver', 'gallbladder']
+  });
+  one('stomach', {
+    aka: 'Gaster', fn: 'A muscular bag that stores a meal, churns it and starts protein digestion. Its lining makes hydrochloric acid at pH 1–2 — strong enough to dissolve metal — while a thick mucus layer keeps the acid away from the wall.',
+    facts: [
+      'It holds 1–1.5 litres after a large meal but only about 50 mL when empty.',
+      'Acid is strong enough to dissolve a razor blade; mucus and rapid cell turnover save the lining.',
+      'Food leaves at roughly 3 kcal per minute, which is why a fatty meal keeps you full.'
+    ],
+    stats: [['Empty volume', '~50 mL'], ['Full volume', '1–1.5 L'], ['Acid pH', '1–3']],
+    conn: ['liver', 'pancreas', 'small-intestine', 'spleen']
+  });
+  one('spleen', {
+    aka: 'Blood filter', fn: 'A fist-sized organ behind the stomach that filters blood, removes worn-out red cells and mounts immune responses against blood-borne infection. It is the body’s largest lymph organ.',
+    facts: [
+      'It holds about 200 mL of blood it can squeeze back into circulation if needed.',
+      'It removes and recycles about 2 million worn-out red cells every second.',
+      'Removing it leaves a person vulnerable to encapsulated bacteria, so vaccination follows.'
+    ],
+    stats: [['Mass', '150–200 g'], ['Blood stored', '~200 mL'], ['RBC recycled', '~2 million/s']],
+    conn: ['stomach', 'pancreas', 'liver', 'ribs-false-left']
+  });
+  pair('kidney', {
+    aka: 'Ren', fn: 'The organ that filters blood into urine. Each kidney contains about a million nephrons, and between them they clean all five litres of blood roughly forty times a day while regulating salt, water, acid and blood pressure.',
+    facts: [
+      'Together they filter about 180 litres of fluid a day and return almost all of it.',
+      'One kidney is enough to live normally, which is why living donation works.',
+      'They also release renin, erythropoietin and vitamin D, so they are endocrine organs too.'
+    ],
+    stats: [['Nephrons', '~1 million each'], ['Filtration', '~180 L/day'], ['Blood flow', '~20% of cardiac output']],
+    conn: ['ureter-left', 'bladder', 'adrenal-left', 'renal-artery-left']
+  });
+  pair('adrenal', {
+    aka: 'Suprarenal gland', fn: 'A gland sitting like a cap on each kidney. The outer cortex makes cortisol, aldosterone and androgens; the inner medulla makes adrenaline and noradrenaline — the hormones of the stress response.',
+    facts: [
+      'Its medulla is functionally part of the nervous system, firing in under a second.',
+      'Cortisol from here is what wakes you up and manages long-term stress.',
+      'Aldosterone from here is the main control on how much salt and water the body keeps.'
+    ],
+    stats: [['Mass', '4–5 g each'], ['Cortex layers', '3'], ['Adrenaline release', 'seconds']],
+    conn: ['kidney-left', 'vena-cava-inferior', 'aorta']
+  });
+  pair('ureter', {
+    aka: 'Urine tube', fn: 'A muscular tube carrying urine from the kidney to the bladder. It does not rely on gravity: its walls squeeze in rhythmic waves, so urine reaches the bladder even when you are upside down.',
+    facts: [
+      'Peristaltic waves push urine along, roughly once every 10–60 seconds.',
+      'Narrow points along it are where kidney stones get stuck and cause the worst pain.',
+      'It is about 25 cm long and the width of a thin pencil.'
+    ],
+    stats: [['Length', '25–30 cm'], ['Diameter', '3–4 mm'], ['Flow', 'wavelike, not gravity']],
+    conn: ['kidney-left', 'bladder']
+  });
+  one('bladder', {
+    aka: 'Urinary reservoir', fn: 'A muscular balloon that stores urine until it is convenient to empty. Its wall is smooth muscle that stays relaxed while filling and then contracts in one coordinated squeeze.',
+    facts: [
+      'Its wall muscle is the detrusor, which must relax for urine to be stored and contract to void.',
+      'The first urge to urinate comes at about 150–250 mL, well before discomfort near 500 mL.',
+      'It sits behind the pubic bone, which is why it can hold a great deal without being felt.'
+    ],
+    stats: [['Capacity', '400–600 mL'], ['First urge', '150–250 mL'], ['Normal void', '200–400 mL']],
+    conn: ['ureter-left', 'pelvis', 'kidney-left']
+  });
+  one('small-intestine', {
+    aka: 'Intestinum tenue', fn: 'Six metres of coiled tube where almost all digestion and absorption happens. Its lining is folded into villi, and each villus cell has microvilli, so a modest tube offers a surface area the size of a tennis court.',
+    facts: [
+      'It absorbs about 90% of the nutrients from food.',
+      'Its surface area is roughly 30 m² — the size of a studio flat.',
+      'Its lining is renewed every three to five days, one of the fastest turnovers in the body.'
+    ],
+    stats: [['Length', '~6 m'], ['Surface area', '~30 m²'], ['Transit time', '2–6 hours']],
+    conn: ['large-intestine', 'stomach', 'pancreas', 'liver', 'portal-vein']
+  });
+  one('large-intestine', {
+    aka: 'Colon', fn: 'The last metre and a half of the gut, framing the small intestine. It reclaims water and salts, hosts trillions of gut bacteria, and compresses waste into stool — turning a litre and a half of fluid daily into a fraction of that.',
+    facts: [
+      'It absorbs about 1.3 litres of the 1.5 litres it receives each day.',
+      'The appendix hangs off its very first part, the caecum.',
+      'Its resident microbiome weighs roughly 1–2 kg and ferments fibre into short-chain fatty acids.'
+    ],
+    stats: [['Length', '~1.5 m'], ['Water reclaimed', '~1.3 L/day'], ['Transit time', '12–48 hours']],
+    conn: ['small-intestine', 'appendix', 'bladder']
+  });
+  one('appendix', {
+    aka: 'Appendix vermiformis', fn: 'A blind tube hanging off the caecum at the start of the colon. Long thought vestigial, it turns out to hold a reservoir of gut bacteria that can repopulate the bowel after a severe illness.',
+    facts: [
+      'It holds a biofilm reserve of gut flora that helps recovery after diarrhoeal illness.',
+      'It has its own blood supply, so it must be removed when it becomes blocked and infected.',
+      'It is 2–20 cm long — the reason appendicitis symptoms vary so much.'
+    ],
+    stats: [['Length', '2–20 cm'], ['Diameter', '~6 mm'], ['Lifetime risk of appendicitis', '~7%']],
+    conn: ['large-intestine', 'small-intestine']
+  });
+})();
+
+/* closes the core closure and hands back the pure API */
+  return API;
+})();
+/* CORE-END */
+</script>
+<script>
+/* =============================================================================
+   UI — rendering. Every view is a pure function of state + Atlas data; the DOM
+   is only ever set from those strings.
+   ========================================================================== */
+var st = Atlas.defaultState();
+var $ = function (id) { return document.getElementById(id); };
+var svg, world, labels, stage;
+
+var SYS_BY_ID = {};
+Atlas.SYSTEMS.forEach(function (s) { SYS_BY_ID[s.id] = s; });
+function sysName(id) { return SYS_BY_ID[id] ? SYS_BY_ID[id].name : id; }
+function sysColor(id) { return Atlas.colorOf(id); }
+function sysHl(id) { return Atlas.hlOf(id); }
+
+function renderSvg() {
+  world.innerHTML = Atlas.svgBody(st) + '<g id="labels" pointer-events="none"></g>';
+  labels = document.getElementById('labels');
+  renderLabels();
+}
+function renderLabels() {
+  if (!labels) return;
+  var out = '', id = st.hl || st.sel;
+  if (st.labels && id) {
+    var p = Atlas.get(id), b = Atlas.bbox(p);
+    if (b) {
+      var right = b.cx < Atlas.CX;
+      var lx = right ? Math.max(4, b.x - 108) : Math.min(Atlas.VIEW.w - 108, b.x + b.w + 10);
+      var ly = b.y + Math.min(16, b.h / 2);
+      out += '<path class="leader" d="M' + (right ? b.x - 4 : b.x + b.w + 4) + ',' + (b.cy) +
+        'L' + (right ? lx + 100 : lx) + ',' + ly + '"/>';
+      out += '<text class="lbl" x="' + (lx + (right ? 99 : 1)) + '" y="' + (ly - 3) + '" text-anchor="' + (right ? 'end' : 'start') + '">' +
+        esc(p.name) + '</text>';
+      out += '<text class="lbl-sub" x="' + (lx + (right ? 99 : 1)) + '" y="' + (ly + 8) + '" text-anchor="' + (right ? 'end' : 'start') + '">' +
+        esc(sysName(p.sys)) + ' · ' + esc(p.region) + '</text>';
+    }
+  }
+  labels.innerHTML = out;
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+/* --------------------------------------------------------------- sidebar --- */
+function renderSidebar() {
+  var h = '', tot = 0;
+  Atlas.SYSTEMS.forEach(function (s) {
+    var n = Atlas.partsOf(s.id).length; tot += n;
+    var off = !st.on[s.id];
+    h += '<div class="sys-row' + (off ? ' off' : '') + '" data-sys="' + s.id + '">' +
+      '<div class="sys-top" data-toggle="' + s.id + '">' +
+      '<span class="sys-dot" style="background:' + s.color + ';color:' + s.color + '"></span>' +
+      '<span class="sys-name">' + esc(s.name) + '</span>' +
+      '<span class="sys-eye">' + (off ? '&#9675;' : '&#9679;') + '</span>' +
+      '<span class="sys-count">' + n + '</span>' +
+      '</div>' +
+      '<p class="sys-desc">' + esc(s.desc) + '</p>' +
+      '<div class="sys-slider"><label>op</label><input type="range" min="0.08" max="1" step="0.01" value="' +
+      st.opacity[s.id] + '" data-op="' + s.id + '"></div>' +
+      '</div>';
+  });
+  $('sysList').innerHTML = h;
+  $('totTag').textContent = tot + ' structures';
+}
+function renderRegions() {
+  $('regionList').innerHTML = Atlas.REGIONS.map(function (r) {
+    var n = Atlas.all().filter(function (p) { return p.region === r && st.on[p.sys]; }).length;
+    return '<button class="region-chip" data-region="' + esc(r) + '">' + esc(r) + ' ' + n + '</button>';
+  }).join('');
+}
+function renderLegend() {
+  $('legend').innerHTML = Atlas.SYSTEMS.filter(function (s) { return st.on[s.id] && (!st.iso || st.iso === s.id); })
+    .map(function (s) { return '<span><i style="background:' + s.color + '"></i>' + esc(s.short) + '</span>'; }).join('');
+}
+function renderHud() {
+  var vis = Atlas.all().filter(function (p) { return st.on[p.sys] && (!st.iso || st.iso === p.sys); }).length;
+  var moved = Object.keys(st.off).length;
+  $('hud').innerHTML = '<span><b>' + vis + '</b> structures shown</span>' +
+    '<span><b>' + moved + '</b> detached</span>' +
+    '<span>' + (st.quiz.active ? 'quiz running' : 'drag a part · click for detail') + '</span>';
+}
+function renderResults(list, note) {
+  var r = $('results');
+  if (!list) { r.innerHTML = ''; return; }
+  if (!list.length) { r.innerHTML = '<div class="res-none">' + esc(note || 'nothing matched') + '</div>'; return; }
+  r.innerHTML = list.map(function (p) {
+    return '<div class="res" data-id="' + p.id + '"><span class="rd" style="background:' + sysColor(p.sys) + '"></span>' +
+      '<span style="flex:1">' + esc(p.name) + '</span><span class="rs">' + esc(p.region) + '</span></div>';
+  }).join('');
+}
+
+/* ---------------------------------------------------------------- detail --- */
+function renderDetail() {
+  var empty = $('dEmpty'), body = $('dBody');
+  if (!st.sel) {
+    empty.classList.remove('hidden'); body.classList.add('hidden');
+    $('dPaneTitle').textContent = 'Structure'; $('dIdx').textContent = '';
+    return;
+  }
+  var p = Atlas.get(st.sel), inf = Atlas.infoOf(st.sel) || {};
+  var hl = sysHl(p.sys);
+  var idx = Atlas.all().filter(function (q) { return st.on[q.sys]; }).map(function (q) { return q.id; }).indexOf(p.id) + 1;
+  var bb = Atlas.bbox(p) || { w: 0, h: 0 };
+  var h = '<div class="d-head" style="--hl:' + hl + '">' +
+    '<div class="d-sys">' + esc(sysName(p.sys)) + ' &middot; ' + esc(p.group) + '</div>' +
+    '<h2 class="d-name">' + esc(p.name) + '</h2>' +
+    '<div class="d-latin">' + esc(p.latin) + '</div>' +
+    '<div class="d-tags">' +
+    '<span class="d-tag hl">' + esc(p.region) + '</span>' +
+    (inf.aka ? '<span class="d-tag">' + esc(inf.aka) + '</span>' : '') +
+    '<span class="d-tag">extent ' + Math.round(bb.w) + ' &times; ' + Math.round(bb.h) + '</span>' +
+    '</div>' +
+    '<div class="d-actions">' +
+    '<button data-act="locate">Locate</button>' +
+    '<button data-act="solo">Only ' + esc(sysName(p.sys)) + '</button>' +
+    '<button data-act="reset">Reset position</button>' +
+    '</div></div>';
+
+  h += '<div class="d-sec" style="--hl:' + hl + '"><h4>Function</h4><p>' + esc(inf.fn || '') + '</p></div>';
+  if (inf.facts) h += '<div class="d-sec" style="--hl:' + hl + '"><h4>Key facts</h4><ul class="d-facts">' +
+    inf.facts.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></div>';
+  if (inf.stats) h += '<div class="d-sec" style="--hl:' + hl + '"><h4>Figures</h4><div class="d-stats">' +
+    inf.stats.map(function (kv) { return '<div class="d-stat"><div class="k">' + esc(kv[0]) + '</div><div class="v">' + esc(kv[1]) + '</div></div>'; }).join('') +
+    '</div></div>';
+  if (inf.conn && inf.conn.length) h += '<div class="d-sec" style="--hl:' + hl + '"><h4>Works with</h4><div class="d-conn">' +
+    inf.conn.filter(function (id) { return Atlas.get(id); }).map(function (id) {
+      return '<button data-goto="' + id + '">' + esc(Atlas.get(id).name) + '</button>';
+    }).join('') + '</div></div>';
+  h += '<div class="d-sec"><h4>Position</h4><div class="d-stats">' +
+    '<div class="d-stat"><div class="k">Offsets</div><div class="v">' +
+    (st.off[p.id] ? st.off[p.id].join(', ') : '0, 0') + '</div></div>' +
+    '<div class="d-stat"><div class="k">Shapes</div><div class="v">' + p.shapes.length + '</div></div>' +
+    '</div></div>';
+
+  body.innerHTML = h;
+  body.classList.remove('hidden'); empty.classList.add('hidden');
+  $('dPaneTitle').textContent = 'Structure'; $('dIdx').textContent = '#' + idx + ' of ' + Atlas.all().filter(function (q) { return st.on[q.sys]; }).length;
+  if (window.innerWidth <= 1240) $('detail').classList.add('open');
+}
+
+/* ------------------------------------------------------------------ misc --- */
+var toastT = null;
+function toast(msg) {
+  var t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('on'); }, 2200);
+}
+function paintAll() {
+  renderSvg(); renderSidebar(); renderRegions(); renderLegend(); renderHud();
+  syncToggles();
+}
+function syncToggles() {
+  document.querySelectorAll('.sys-row').forEach(function (row) {
+    var sys = row.dataset.sys, off = !st.on[sys] || (st.iso && st.iso !== sys);
+    row.classList.toggle('off', off);
+    var eye = row.querySelector('.sys-eye'); if (eye) eye.innerHTML = off ? '&#9675;' : '&#9679;';
+    row.style.opacity = (st.iso && st.iso !== sys) ? .35 : 1;
+  });
+  $('btnXray').classList.toggle('on', st.xray);
+  $('btnSkin').classList.toggle('on', st.skin);
+  if (st.xray) world.classList.add('xray'); else world.classList.remove('xray');
+}
+
+/* =============================================================================
+   UI — interaction: drag a structure out of the body, pan/zoom the figure,
+   select for detail, quiz mode, exports and keyboard shortcuts.
+   ========================================================================== */
+var view = { tx: 0, ty: 0, k: 1 };
+var drag = null;
+
+function applyView() {
+  world.setAttribute('transform', 'translate(' + view.tx + ',' + view.ty + ') scale(' + view.k + ')');
+}
+function toViewBox(e) {
+  var m = svg.getScreenCTM(); if (!m) return { x: 0, y: 0 };
+  var p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+  return p;
+}
+function toWorld(e) {
+  var u = toViewBox(e);
+  return { x: (u.x - view.tx) / view.k, y: (u.y - view.ty) / view.k };
+}
+function fitView() { view = { tx: 0, ty: 0, k: 1 }; applyView(); }
+function zoomAt(f, u) {
+  var k1 = Math.max(0.55, Math.min(9, view.k * f));
+  view.tx = u.x - (u.x - view.tx) * (k1 / view.k);
+  view.ty = u.y - (u.y - view.ty) * (k1 / view.k);
+  view.k = k1; applyView();
+}
+
+/* ------------------------------------------------------------ selection --- */
+function selectPart(id, opts) {
+  st.sel = id; st.hits++;
+  document.querySelectorAll('.part.sel').forEach(function (g) { g.classList.remove('sel'); });
+  var g = document.querySelector('.part[data-id="' + id + '"]');
+  if (g) g.classList.add('sel');
+  renderLabels(); renderDetail();
+  if (opts && opts.focus) focusPart(id);
+  if (st.quiz.active) quizAnswer(id);
+}
+function clearSelection() {
+  st.sel = null;
+  document.querySelectorAll('.part.sel').forEach(function (g) { g.classList.remove('sel'); });
+  renderLabels(); renderDetail();
+}
+/* Structures are stacked: a click reaches the topmost one, and clicking again in
+   the same place walks down the stack, so nothing is unreachable because a
+   muscle or the rib cage happens to lie over it. */
+var stackPick = { x: -999, y: -999, i: 0, n: 0 };
+function partsAtPoint(x, y) {
+  var els = document.elementsFromPoint(x, y), out = [];
+  for (var i = 0; i < els.length; i++) {
+    var g = els[i].closest ? els[i].closest('.part') : null;
+    if (g && out.indexOf(g.dataset.id) === -1) out.push(g.dataset.id);
+  }
+  return out;
+}
+function pickAtPoint(x, y, fallbackId) {
+  var ids = partsAtPoint(x, y);
+  if (!ids.length) ids = [fallbackId];
+  var same = Math.abs(x - stackPick.x) < 12 && Math.abs(y - stackPick.y) < 12;
+  stackPick.i = (ids.length > 1 && same) ? (stackPick.i + 1) % ids.length : 0;
+  stackPick.x = x; stackPick.y = y; stackPick.n = ids.length;
+  var id = ids[stackPick.i];
+  selectPart(id);
+  if (ids.length > 1) toast(ids.length + ' structures at that point — click again for the next one');
+  return id;
+}
+function focusPart(id) {
+  var p = Atlas.get(id); if (!p) return;
+  var b = Atlas.bbox(p), off = st.off[id] || [0, 0];
+  if (!b) return;
+  var k = Math.max(1, Math.min(3.4, 620 / Math.max(b.w + 60, b.h + 60)));
+  view.k = k;
+  view.tx = Atlas.VIEW.w / 2 - (b.cx + off[0]) * k;
+  view.ty = Atlas.VIEW.h / 2 - (b.cy + off[1]) * k;
+  applyView();
+  var g = document.querySelector('.part[data-id="' + id + '"]');
+  if (g) { g.classList.add('ok'); setTimeout(function () { g.classList.remove('ok'); }, 900); }
+}
+
+/* ----------------------------------------------------------------- drag --- */
+function setPartOffset(id, dx, dy) {
+  st.off[id] = [Math.round(dx * 10) / 10, Math.round(dy * 10) / 10];
+  var g = document.querySelector('.part[data-id="' + id + '"]');
+  if (g) {
+    g.setAttribute('transform', 'translate(' + st.off[id][0] + ',' + st.off[id][1] + ')');
+    g.classList.toggle('moved', !!(st.off[id][0] || st.off[id][1]));
+  }
+  renderLabels(); renderHud();
+}
+function onDown(e) {
+  if (e.button !== 0 && e.pointerType === 'mouse') return;
+  var g = e.target.closest ? e.target.closest('.part') : null;
+  if (g) {
+    var id = g.dataset.id, w = toWorld(e), off = st.off[id] || [0, 0];
+    drag = { kind: 'part', id: id, g: g, start: w, off: off, moved: 0 };
+    g.classList.add('dragging');
+    atlas.classList.add('dragging');
+    e.preventDefault();
+  } else {
+    drag = { kind: 'pan', start: toViewBox(e), tx: view.tx, ty: view.ty, moved: 0 };
+    atlas.classList.add('grabbing');
+  }
+  hideTip();
+}
+function onMove(e) {
+  if (!drag) {
+    var g = e.target.closest ? e.target.closest('.part') : null;
+    if (g && g.dataset.id !== st.hl) { st.hl = g.dataset.id; highlight(g.dataset.id); showTip(e, g.dataset.id); }
+    else if (!g && st.hl) { st.hl = null; highlight(null); hideTip(); }
+    else if (g) showTip(e, g.dataset.id);
+    return;
+  }
+  if (drag.kind === 'part') {
+    var w = toWorld(e);
+    var dx = w.x - drag.start.x, dy = w.y - drag.start.y;
+    drag.moved = Math.max(drag.moved, Math.abs(dx) + Math.abs(dy));
+    setPartOffset(drag.id, drag.off[0] + dx, drag.off[1] + dy);
+  } else {
+    var u = toViewBox(e);
+    var ddx = u.x - drag.start.x, ddy = u.y - drag.start.y;
+    drag.moved = Math.max(drag.moved, Math.abs(ddx) + Math.abs(ddy));
+    view.tx = drag.tx + ddx; view.ty = drag.ty + ddy; applyView();
+  }
+  hideTip();
+}
+function onUp(e) {
+  if (!drag) return;
+  if (drag.kind === 'part') {
+    drag.g.classList.remove('dragging');
+    atlas.classList.remove('dragging');
+    if (drag.moved < 3.5) {
+      if (e.shiftKey) soloSystem(Atlas.get(drag.id).sys);
+      else pickAtPoint(e.clientX, e.clientY, drag.id);
+    }
+  } else {
+    atlas.classList.remove('grabbing');
+  }
+  drag = null;
+}
+function highlight(id) {
+  document.querySelectorAll('.part.hl').forEach(function (g) { g.classList.remove('hl'); });
+  if (id) {
+    var g = document.querySelector('.part[data-id="' + id + '"]');
+    if (g) g.classList.add('hl');
+  }
+  renderLabels();
+}
+function showTip(e, id) {
+  var p = Atlas.get(id); if (!p) return;
+  var t = $('tooltip'), r = stage.getBoundingClientRect();
+  t.innerHTML = '<span class="tt-sys">' + esc(sysName(p.sys)) + '</span>' + esc(p.name);
+  t.classList.add('on');
+  var x = e.clientX - r.left + 16, y = e.clientY - r.top + 6;
+  var tw = t.offsetWidth;
+  if (x + tw > r.width - 8) x = e.clientX - r.left - tw - 14;
+  t.style.left = x + 'px'; t.style.top = y + 'px';
+}
+function hideTip() { $('tooltip').classList.remove('on'); }
+
+/* ----------------------------------------------------------------- solo --- */
+function soloSystem(sys) {
+  if (st.iso === sys) { st.iso = null; toast('Showing all systems again'); }
+  else { st.iso = sys; toast('Only ' + sysName(sys) + ' — shift-click any part or press Esc to restore'); }
+  syncToggles(); renderSvg(); renderLegend(); renderHud();
+}
+function toggleSystem(sys) {
+  if (st.iso) st.iso = null;
+  st.on[sys] = !st.on[sys];
+  syncToggles(); renderSvg(); renderSidebar(); renderRegions(); renderLegend(); renderHud();
+}
+
+/* ----------------------------------------------------------------- quiz --- */
+function startQuiz() {
+  st.quiz = { active: true, score: 0, asked: 0, streak: 0, best: 0, target: null, recent: [], state: '' };
+  $('quizbar').classList.remove('hidden');
+  $('btnQuiz').textContent = 'Exit quiz';
+  $('btnQuiz').classList.add('on');
+  askNext();
+}
+function stopQuiz(msg) {
+  st.quiz.active = false;
+  $('quizbar').classList.add('hidden');
+  $('btnQuiz').textContent = 'Quiz mode';
+  $('btnQuiz').classList.remove('on');
+  if (msg) toast(msg);
+  renderHud();
+}
+function askNext() {
+  var id = Atlas.quizTarget(st);
+  if (!id) { stopQuiz('No structures visible to quiz on — turn a system back on.'); return; }
+  st.quiz.target = id; st.quiz.state = 'asking';
+  st.quiz.recent = (st.quiz.recent || []).concat([id]).slice(-3);
+  var p = Atlas.get(id);
+  $('qPrompt').innerHTML = 'Click the <b>' + esc(p.name) + '</b>';
+  $('qScore').textContent = st.quiz.score + ' / ' + st.quiz.asked + (st.quiz.streak > 1 ? '  ·  streak ' + st.quiz.streak : '');
+  $('qFeed').textContent = '';
+  $('qFeed').className = 'q-feed';
+  clearSelection();
+}
+function quizAnswer(id) {
+  if (!st.quiz.active) return;
+  st.quiz.asked++;
+  var g = document.querySelector('.part[data-id="' + id + '"]');
+  if (id === st.quiz.target) {
+    st.quiz.score++; st.quiz.streak++;
+    st.quiz.best = Math.max(st.quiz.best, st.quiz.streak);
+    if (g) { g.classList.add('ok'); setTimeout(function () { g.classList.remove('ok'); }, 800); }
+    $('qFeed').textContent = 'correct'; $('qFeed').className = 'q-feed ok';
+    setTimeout(function () { if (st.quiz.active) askNext(); }, 620);
+  } else {
+    st.quiz.streak = 0;
+    if (g) { g.classList.add('bad'); setTimeout(function () { g.classList.remove('bad'); }, 800); }
+    var t = document.querySelector('.part[data-id="' + st.quiz.target + '"]');
+    if (t) { t.classList.add('missed'); setTimeout(function () { t.classList.remove('missed'); }, 1500); }
+    $('qFeed').textContent = 'it was here'; $('qFeed').className = 'q-feed bad';
+    setTimeout(function () { if (st.quiz.active) askNext(); }, 1400);
+  }
+  $('qScore').textContent = st.quiz.score + ' / ' + st.quiz.asked + (st.quiz.streak > 1 ? '  ·  streak ' + st.quiz.streak : '');
+  renderHud();
+}
+
+/* --------------------------------------------------------------- exports --- */
+function exportState() {
+  var s = Atlas.clone(st);
+  s.off = {}; s.sel = null; s.hl = null; s.labels = false; s.iso = st.iso || null;
+  return s;
+}
+function buildSvgExport() {
+  var v = Atlas.VIEW;
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + v.w + ' ' + v.h + '" width="' + v.w * 2 + '" height="' + v.h * 2 + '">' +
+    '<title>Human Atlas</title>' +
+    '<style>' + exportCss() + '</style>' +
+    '<rect width="' + v.w + '" height="' + v.h + '" fill="#06090e"/>' +
+    Atlas.svgBody(exportState()) +
+    '<text x="' + (v.w / 2) + '" y="' + (v.h - 14) + '" fill="#64809b" font-family="monospace" font-size="13" text-anchor="middle">' +
+    'HUMAN ATLAS — ' + Atlas.SYSTEMS.filter(function (s) { return exportState().on[s.id]; }).length + ' systems · ' +
+    Atlas.all().filter(function (p) { return exportState().on[p.sys]; }).length + ' structures</text>' +
+    '</svg>';
+}
+function exportCss() {
+  var css = {
+    bone: ['#e6e1d2', '#948a75'], cartilage: ['#cfe6ef', '#8ba6b6'], cavity: ['#070c12', '#948a75'],
+    line: ['none', '#948a75'], skin: ['rgba(96,140,180,.07)', 'rgba(126,186,232,.34)'],
+    muscle: ['#a8413a', '#6b241e'], muscle2: ['#8c3a34', '#5e211c'], tendon: ['#d3c6af', '#9d8d74'],
+    artery: ['#c8443c', '#8a241f'], vein: ['#3b6fae', '#224a7a'], nerve: ['#e2c163', '#89722a'],
+    brain: ['#d9a441', '#8d6a1f'], liver: ['#7d3a2c', '#4e2219'], lung: ['#bf7a84', '#7d434c'],
+    heart: ['#a8322c', '#6d1c17'], kidney: ['#8b4a3a', '#57291e'], gut: ['#c99a6a', '#8a6440'],
+    colon: ['#b3805a', '#7a5436'], stomach: ['#b5705e', '#7a4437'], spleen: ['#6e3a58', '#431f36'],
+    panc: ['#cbb178', '#8a7444'], bladder: ['#c6ad6a', '#87703a'], gland: ['#a8695c', '#6b3c31'],
+    eye: ['#8fc4e4', '#4c7f9c'], tra: ['#cfe2ec', '#8fa9b8'], adre: ['#c9a04a', '#8a6a24'],
+    gall: ['#4e7a3e', '#2f4a24'], void: ['#0a0f16', 'none']
+  };
+  return Object.keys(css).map(function (k) {
+    return '.r-' + k + '{fill:' + css[k][0] + ';stroke:' + css[k][1] + ';stroke-width:' + (k === 'bone' ? 1 : 0.8) + '}';
+  }).join('');
+}
+function download(name, text, mime) {
+  var blob = new Blob([text], { type: mime || 'image/svg+xml' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+
+/* ------------------------------------------------------------- controls --- */
+function explode() {
+  if (st.exploded) { st.off = {}; st.exploded = false; toast('Parts back in place'); }
+  else { st.off = Atlas.explodeOffsets(50); st.exploded = true; toast('Exploded — drag any piece further, or Reset'); }
+  renderSvg(); renderHud();
+}
+function resetParts() { st.off = {}; st.exploded = false; renderSvg(); renderHud(); toast('All structures reset'); }
+function toggleXray() { st.xray = !st.xray; syncToggles(); renderSvg(); }
+function toggleSkin() { st.skin = !st.skin; syncToggles(); renderSvg(); }
+
+function wireControls() {
+  $('btnExplode').onclick = explode;
+  $('btnReset').onclick = resetParts;
+  $('btnXray').onclick = toggleXray;
+  $('btnSkin').onclick = toggleSkin;
+  $('btnQuiz').onclick = function () { if (st.quiz.active) stopQuiz('Quiz ended — ' + st.quiz.score + '/' + st.quiz.asked); else startQuiz(); };
+  $('qStop').onclick = function () { stopQuiz('Quiz ended — ' + st.quiz.score + '/' + st.quiz.asked + (st.quiz.best > 1 ? ' · best streak ' + st.quiz.best : '')); };
+  $('qSkip').onclick = function () { if (st.quiz.active) askNext(); };
+  $('zIn').onclick = function () { zoomAt(1.28, { x: Atlas.VIEW.w / 2, y: Atlas.VIEW.h / 2 }); };
+  $('zOut').onclick = function () { zoomAt(1 / 1.28, { x: Atlas.VIEW.w / 2, y: Atlas.VIEW.h / 2 }); };
+  $('zFit').onclick = fitView;
+  $('btnSide').onclick = function () { $('sidebar').classList.toggle('open'); };
+  $('btnInfo').onclick = function () { $('detail').classList.toggle('open'); };
+
+  $('sysList').addEventListener('click', function (e) {
+    var tg = e.target.closest('[data-toggle]');
+    if (tg) { toggleSystem(tg.dataset.toggle); return; }
+    var row = e.target.closest('.sys-row');
+    if (row) soloSystem(row.dataset.sys);
+  });
+  $('sysList').addEventListener('input', function (e) {
+    var op = e.target.closest('[data-op]');
+    if (!op) return;
+    st.opacity[op.dataset.op] = +op.value;
+    var layer = document.querySelector('.sys-' + op.dataset.op);
+    if (layer) layer.setAttribute('opacity', op.value);
+  });
+  $('regionList').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-region]'); if (!b) return;
+    var r = b.dataset.region;
+    renderResults(Atlas.all().filter(function (p) { return p.region === r && st.on[p.sys]; }), 'no structures in ' + r);
+    toast(r + ' — ' + Atlas.all().filter(function (p) { return p.region === r && st.on[p.sys]; }).length + ' structures');
+  });
+  $('results').addEventListener('click', function (e) {
+    var r = e.target.closest('[data-id]'); if (!r) return;
+    selectPart(r.dataset.id, { focus: true });
+    if (window.innerWidth <= 760) $('sidebar').classList.remove('open');
+  });
+  var si = $('search');
+  si.addEventListener('input', function () {
+    var q = si.value.trim();
+    if (!q) { renderResults(null); return; }
+    var hits = Atlas.search(q);
+    renderResults(hits, 'no structure matches "' + q + '"');
+  });
+  si.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      var first = $('results').querySelector('[data-id]');
+      if (first) selectPart(first.dataset.id, { focus: true });
+    }
+  });
+  $('dBody').addEventListener('click', function (e) {
+    var a = e.target.closest('[data-act]');
+    if (a) {
+      var id = st.sel;
+      if (a.dataset.act === 'locate') focusPart(id);
+      else if (a.dataset.act === 'solo') soloSystem(Atlas.get(id).sys);
+      else if (a.dataset.act === 'reset') { delete st.off[id]; renderSvg(); renderDetail(); renderHud(); }
+      return;
+    }
+    var g = e.target.closest('[data-goto]');
+    if (g) selectPart(g.dataset.goto, { focus: true });
+  });
+
+  atlas.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  stage.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    zoomAt(Math.exp(-e.deltaY * 0.0016), toViewBox(e));
+  }, { passive: false });
+  window.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.key === 'Escape') { if (st.iso) soloSystem(st.iso); clearSelection(); }
+    else if (e.key === 'e') explode();
+    else if (e.key === 'r') resetParts();
+    else if (e.key === 'x') toggleXray();
+    else if (e.key === '0') fitView();
+    else if (e.key === '+') zoomAt(1.25, { x: Atlas.VIEW.w / 2, y: Atlas.VIEW.h / 2 });
+    else if (e.key === '-') zoomAt(1 / 1.25, { x: Atlas.VIEW.w / 2, y: Atlas.VIEW.h / 2 });
+  });
+}
+
+/* =============================================================================
+   UI — boot, query-string harness modes (?selftest / ?autoplay / ?metrics /
+   ?pick / ?sys / ?explode / ?xray) and the window.__ATLAS__ test hook.
+   ========================================================================== */
+function boot() {
+  svg = $('atlas'); stage = $('stage');
+  svg.setAttribute('viewBox', '0 0 ' + Atlas.VIEW.w + ' ' + Atlas.VIEW.h);
+  svg.innerHTML = '<g id="world"></g>';
+  world = $('world');
+  applyView();
+  paintAll();
+  wireControls();
+  applyQuery();
+  if (typeof window !== 'undefined') window.__ATLAS__.ready = true;
+}
+
+function applyQuery() {
+  var q = window.location.search.replace(/^\?/, '');
+  if (!q) return;
+  var params = {};
+  q.split('&').forEach(function (kv) {
+    var i = kv.indexOf('=');
+    if (i < 0) params[decodeURIComponent(kv)] = '1';
+    else params[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1));
+  });
+  if (params.sys) {
+    var want = params.sys.split(',');
+    Atlas.SYSTEMS.forEach(function (s) { st.on[s.id] = want.indexOf(s.id) > -1; });
+    paintAll();
+  }
+  if (params.xray) { st.xray = true; syncToggles(); renderSvg(); }
+  if (params.skin === '0') { st.skin = false; syncToggles(); renderSvg(); }
+  if (params.explode) { st.off = Atlas.explodeOffsets(34); st.exploded = true; renderSvg(); renderHud(); }
+  if (params.pick) { st.on[Atlas.get(params.pick).sys] = true; renderSvg(); selectPart(params.pick, { focus: !!params.focus }); }
+  if (params.zoom) zoomAt(+params.zoom, { x: Atlas.VIEW.w / 2, y: Atlas.VIEW.h / 2 });
+  if (params.selftest) selftest();
+  if (params.metrics) metrics();
+  if (params.autoplay) autoplay();
+}
+
+/* ------------------------------------------------------------- selftest --- */
+function selftest() {
+  var out = [], fails = [], pass = 0;
+  function ok(name, cond, detail) {
+    if (cond) { pass++; return; }
+    fails.push(name + (detail ? ' — ' + detail : ''));
+  }
+  var all = Atlas.all(), sys = Atlas.SYSTEMS.map(function (s) { return s.id; });
+
+  ok('markers', typeof Atlas.svgBody === 'function');
+  ok('five systems', Atlas.SYSTEMS.length === 5);
+  ok('render order covers systems', Atlas.RENDER_ORDER.length === 5 &&
+    sys.every(function (s) { return Atlas.RENDER_ORDER.indexOf(s) > -1; }));
+  ok('part count >= 150', all.length >= 150, 'got ' + all.length);
+  sys.forEach(function (s) {
+    ok('system ' + s + ' has parts', Atlas.partsOf(s).length >= 15, s + ' = ' + Atlas.partsOf(s).length);
+  });
+  /* data integrity */
+  var bad = Atlas.validate();
+  ok('validate() clean', bad.length === 0, bad.slice(0, 6).join(' | '));
+  /* every id unique, every INFO present */
+  ok('info for every part', all.every(function (p) { return !!Atlas.infoOf(p.id); }));
+  ok('no orphan info', Atlas.stats().withInfo === all.length, Atlas.stats().withInfo + ' vs ' + all.length);
+  /* geometry sanity */
+  var nan = all.filter(function (p) { return p.shapes.some(function (s) { return /NaN|undefined|null/.test(s.d); }); });
+  ok('no bad numbers in paths', nan.length === 0, nan.map(function (p) { return p.id; }).slice(0, 4).join(','));
+  var tiny = all.filter(function (p) { var b = Atlas.bbox(p); return !b || b.w === 0 || b.h === 0; });
+  ok('every part has real extent', tiny.length === 0, tiny.map(function (p) { return p.id; }).slice(0, 4).join(','));
+  var inbounds = all.filter(function (p) {
+    var b = Atlas.bbox(p);
+    return b && (b.x < -30 || b.y < -10 || b.x + b.w > Atlas.VIEW.w + 30 || b.y + b.h > Atlas.VIEW.h + 10);
+  });
+  ok('all parts inside viewBox', inbounds.length === 0, inbounds.map(function (p) { return p.id; }).slice(0, 5).join(','));
+  /* laterality: patient's left must sit on screen right */
+  var pairs = [['humerus', 'femur'], ['lung'], ['kidney'], ['scapula']];
+  pairs.forEach(function (grp) {
+    grp.forEach(function (base) {
+      var l = Atlas.get(base + '-left'), r = Atlas.get(base + '-right');
+      if (!l || !r) { ok('laterality pair ' + base, false, 'missing'); return; }
+      var lb = Atlas.bbox(l), rb = Atlas.bbox(r);
+      ok('laterality ' + base + ' L right of R', lb.cx > rb.cx, lb.cx + ' vs ' + rb.cx);
+      ok('laterality ' + base + ' mirrored', Math.abs((lb.cx + rb.cx) / 2 - Atlas.CX) < 4, (lb.cx + rb.cx) / 2 + ' vs mid ' + Atlas.CX);
+    });
+  });
+  /* state driving */
+  var s1 = Atlas.defaultState();
+  var body1 = Atlas.svgBody(s1);
+  ok('svgBody includes skin', body1.indexOf('r-skin') > -1);
+  ok('svgBody has every enabled part', all.every(function (p) { return body1.indexOf('data-id="' + p.id + '"') > -1; }));
+  var s2 = Atlas.clone(s1); s2.on.organs = false;
+  var body2 = Atlas.svgBody(s2);
+  var organs = Atlas.partsOf('organs');
+  ok('disabled system leaves the DOM', organs.every(function (p) { return body2.indexOf('data-id="' + p.id + '"') === -1; }));
+  ok('other systems survive', body2.indexOf('data-id="heart"') > -1 && body2.indexOf('data-id="femur-left"') > -1);
+  var s3 = Atlas.clone(s1); s3.off['heart'] = [40, -30];
+  ok('offset lands in the transform', /data-id="heart"[^>]*transform="translate\(40,-30\)"/.test(Atlas.svgBody(s3)));
+  var s4 = Atlas.clone(s1); s4.iso = 'skeletal';
+  var body4 = Atlas.svgBody(s4);
+  ok('iso hides other systems', body4.indexOf('data-id="heart"') === -1 && body4.indexOf('data-id="cranium"') > -1);
+  var s5 = Atlas.clone(s1); s5.sel = 'liver'; s5.hl = 'liver';
+  ok('selection reaches the markup', /class="part sel hl"[^>]*data-id="liver"/.test(Atlas.svgBody(s5)));
+  /* hit targets: every painted shape has an invisible twin */
+  var sample = Atlas.get('aorta');
+  var bodyA = Atlas.svgBody(s1);
+  ok('hit targets emitted', (bodyA.match(/class="r-hit hit"/g) || []).length ===
+    all.filter(function (p) { return s1.on[p.sys]; }).reduce(function (a, p) { return a + p.shapes.length; }, 0));
+  /* explode */
+  var off = Atlas.explodeOffsets(26);
+  ok('explode covers every part', Object.keys(off).length === all.length);
+  ok('explode pushes away from the midline', Atlas.get('humerus-left') && off['humerus-left'][0] > 0 && off['humerus-right'][0] < 0,
+    off['humerus-left'].join(',') + ' / ' + off['humerus-right'].join(','));
+  /* search */
+  ok('search femur first', (Atlas.search('femur')[0] || {}).id === 'femur-left' || (Atlas.search('femur')[0] || {}).id === 'femur-right');
+  ok('search latin', Atlas.search('hepar').some(function (p) { return p.id === 'liver'; }));
+  ok('search empty -> none', Atlas.search('   ').length === 0);
+  ok('search miss -> none', Atlas.search('zzzzz').length === 0);
+  /* quiz */
+  var sq = Atlas.defaultState();
+  var seen = {}, dup = false;
+  for (var i = 0; i < 24; i++) {
+    var t = Atlas.quizTarget(sq);
+    if (!t) { dup = true; break; }
+    if (seen[t] && Object.keys(seen).length < 22) dup = true;
+    seen[t] = 1; sq.quiz.asked = i + 1; sq.quiz.recent = sq.quiz.recent.concat([t]).slice(-3);
+  }
+  ok('quiz target always resolvable', !dup && Object.keys(seen).length >= 8, Object.keys(seen).length + ' distinct');
+  var sq2 = Atlas.defaultState();
+  Atlas.SYSTEMS.forEach(function (s) { sq2.on[s.id] = (s.id === 'nervous'); });
+  var t2 = Atlas.quizTarget(sq2);
+  ok('quiz stays inside enabled systems', !!t2 && Atlas.get(t2).sys === 'nervous', t2);
+  /* organ placement: heart left of midline, liver right of it */
+  ok('heart sits in the left chest', Atlas.bbox(Atlas.get('heart')).cx > Atlas.CX,
+    Atlas.bbox(Atlas.get('heart')).cx + ' vs ' + Atlas.CX);
+  ok('liver sits in the right upper abdomen', Atlas.bbox(Atlas.get('liver')).cx < Atlas.CX,
+    Atlas.bbox(Atlas.get('liver')).cx);
+  /* determinism */
+  ok('geometry deterministic', Atlas.svgBody(Atlas.defaultState()) === body1);
+  ok('export matches the rendered markup', buildSvgExport().indexOf(Atlas.svgBody(exportState())) > -1);
+
+  var title = 'SELFTEST ' + (fails.length ? 'FAIL' : 'PASS') + ' (' + pass + ' checks)';
+  document.title = title;
+  out.push(title);
+  if (fails.length) out.push(fails.join('\n'));
+  var pre = document.createElement('pre');
+  pre.id = 'selftestOut'; pre.textContent = out.join('\n');
+  pre.style.cssText = 'position:fixed;left:0;bottom:0;z-index:99;background:#000;color:#0f0;font:11px monospace;max-height:40vh;overflow:auto';
+  document.body.appendChild(pre);
+  return { pass: pass, fails: fails };
+}
+
+function metrics() {
+  var d = document.documentElement;
+  var r = svg.getBoundingClientRect();
+  document.title = 'METRICS::' + JSON.stringify({
+    iw: window.innerWidth, sw: d.scrollWidth, overflow: d.scrollWidth - window.innerWidth,
+    svgW: Math.round(r.width), svgH: Math.round(r.height), parts: Atlas.all().length,
+    rendered: (svg.querySelectorAll('.part').length)
+  });
+}
+
+/* -------------------------------------------------------------- autoplay --- */
+function autoplay() {
+  var log = [];
+  function n(sel) { return sel ? sel.length : 0; }
+  log.push('rendered=' + n(svg.querySelectorAll('.part')));
+  toggleSystem('muscular');
+  log.push('muscularOff=' + (svg.querySelectorAll('.sys-muscular .part').length === 0));
+  toggleSystem('muscular');
+  selectPart('heart');
+  log.push('sel=' + (document.querySelectorAll('.part.sel').length) + '/' + (st.sel || '-'));
+  log.push('detail=' + (($('dBody').textContent || '').indexOf('Heart') > -1));
+  log.push('facts=' + n($('dBody').querySelectorAll('.d-facts li')));
+  var before = st.off['liver'] || [0, 0];
+  setPartOffset('liver', before[0] + 30, before[1] - 12);
+  var moved = document.querySelector('.part[data-id="liver"]').getAttribute('transform');
+  log.push('dragged=' + moved);
+  /* re-render must preserve the drag */
+  toggleSystem('nervous'); toggleSystem('nervous');
+  log.push('dragSurvived=' + (document.querySelector('.part[data-id="liver"]').getAttribute('transform') === moved));
+  delete st.off['liver'];
+  explode(); log.push('exploded=' + Object.keys(st.off).length);
+  resetParts(); log.push('reset=' + Object.keys(st.off).length);
+  var q = Atlas.search('ulna'); log.push('search=' + q.length);
+  startQuiz();
+  var hits = 0;
+  for (var i = 0; i < 5; i++) {
+    var target = st.quiz.target;
+    if (i === 2) { /* one deliberate wrong answer */ }
+    var pick = (i === 2) ? Atlas.all().filter(function (p) { return p.id !== target && st.on[p.sys]; })[12].id : target;
+    quizAnswer(pick);
+    if (pick === target) hits++;
+    if (st.quiz.active) askNext();
+  }
+  log.push('quiz=' + st.quiz.score + '/' + st.quiz.asked + ' hits=' + hits);
+  stopQuiz();
+  soloSystem('skeletal'); log.push('iso=' + st.iso);
+  soloSystem('skeletal'); log.push('isoOff=' + (st.iso === null));
+  focusPart('sacrum'); log.push('zoom=' + view.k.toFixed(2));
+  fitView(); log.push('fit=' + (view.k === 1));
+  log.push('exportBytes=' + buildSvgExport().length);
+  log.push('partsInExport=' + (buildSvgExport().match(/data-id=/g) || []).length);
+  document.title = 'AUTOPLAY ' + log.join(' | ');
+}
+
+/* ----------------------------------------------------------------- hook --- */
+window.__ATLAS__ = {
+  ready: false,
+  data: Atlas,
+  get state() { return st; },
+  dom: function () {
+    return {
+      rendered: svg.querySelectorAll('.part').length,
+      selected: document.querySelectorAll('.part.sel').length,
+      detailName: ($('dBody').querySelector('.d-name') || {}).textContent || '',
+      facts: $('dBody').querySelectorAll('.d-facts li').length,
+      sysRows: $('sysList').querySelectorAll('.sys-row').length,
+      legend: $('legend').children.length,
+      hud: $('hud').textContent,
+      title: document.title,
+      tooltip: $('tooltip').classList.contains('on'),
+      transformOf: function (id) {
+        var g = document.querySelector('.part[data-id="' + id + '"]');
+        return g ? g.getAttribute('transform') : null;
+      }
+    };
+  },
+  selectPart: selectPart, clearSelection: clearSelection, setSystems: function (list) {
+    Atlas.SYSTEMS.forEach(function (s) { st.on[s.id] = list.indexOf(s.id) > -1; });
+    paintAll();
+  },
+  toggleSystem: toggleSystem, soloSystem: soloSystem, setOpacity: function (sys, v) {
+    st.opacity[sys] = v; var l = document.querySelector('.sys-' + sys); if (l) l.setAttribute('opacity', v);
+  },
+  drag: setPartOffset, explode: explode, resetParts: resetParts, focusPart: focusPart,
+  search: Atlas.search, svgBody: Atlas.svgBody, exportSvg: buildSvgExport, exportState: exportState,
+  quiz: { start: startQuiz, stop: stopQuiz, answer: quizAnswer, state: function () { return st.quiz; } },
+  selftest: selftest, autoplay: autoplay, metrics: metrics, view: function () { return view; },
+  setView: function (tx, ty, k) { view = { tx: tx, ty: ty, k: k }; applyView(); }
+};
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
+</body>
+</html>

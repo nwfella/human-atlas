@@ -1,0 +1,4 @@
+node_modules/
+shots/selftest-*.png
+shot_*.png
+*.log

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Human Atlas — interactive anatomy, 5 systems, 100+ parts</title>
+<meta name="description" content="Interactive human anatomy atlas: skeletal, muscular, circulatory, nervous and organ systems. Drag any part, click for detail.">
+<meta name="theme-color" content="#06090e">
+<style>
+/* ============================ theme ============================ */
+:root{
+  --bg:#06090e; --bg2:#0b1118; --bg3:#111923; --bg4:#17222f;
+  --border:#1d2937; --border2:#2a3d52;
+  --text:#e8f0f8; --text2:#9fb2c6; --text3:#64809b;
+  --accent:#39d0ff; --accent-dim:rgba(57,208,255,.13);
+  --ok:#35d07f; --bad:#ff5c5c; --warn:#ffc857;
+  --radius:10px; --radius-sm:7px;
+  --font:'Segoe UI',Inter,system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,'Cascadia Mono','SF Mono',Consolas,monospace;
+  color-scheme:dark;
+  /* skeletal */
+  --sk:#e6e1d2; --sk-ed:#948a75;
+  /* muscular */
+  --mu:#a8413a; --mu-ed:#6b241e;
+  /* vessels */
+  --ar:#c8443c; --ar-ed:#8a241f; --ve:#3b6fae; --ve-ed:#224a7a;
+  /* nerves */
+  --nv:#e2c163; --nv-ed:#89722a;
+  /* organ palette */
+  --o-liver:#7d3a2c; --o-lung:#bf7a84; --o-heart:#a8322c; --o-kidney:#8b4a3a;
+  --o-gut:#c99a6a; --o-colon:#b3805a; --o-stomach:#b5705e; --o-spleen:#6e3a58;
+  --o-panc:#cbb178; --o-bladder:#c6ad6a; --o-gland:#a8695c; --o-eye:#8fc4e4;
+  --o-brain:#d9a441; --o-tra:#cfe2ec; --o-adre:#c9a04a; --o-gall:#4e7a3e;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;overflow:hidden;
+  -webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(circle at 20% 10%,rgba(57,208,255,.06),transparent 45%),
+                   radial-gradient(circle at 85% 85%,rgba(255,138,90,.05),transparent 45%);}
+button{font-family:inherit;font-size:13px;color:inherit;cursor:pointer}
+input{font-family:inherit}
+.hidden{display:none !important}
+
+/* ============================ topbar ============================ */
+.topbar{position:relative;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  height:54px;padding:0 14px;border-bottom:1px solid var(--border);background:rgba(8,13,19,.92);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand .logo{color:var(--accent);font-size:17px;line-height:1;text-shadow:0 0 14px var(--accent)}
+.brand h1{margin:0;font-size:15px;letter-spacing:.24em;font-weight:600;white-space:nowrap}
+.brand .ver{font-size:10px;color:var(--text3);letter-spacing:.1em;font-family:var(--mono)}
+.brand .sub{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-actions{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tb-btn{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 11px;white-space:nowrap;
+  transition:background .15s,border-color .15s,color .15s}
+.tb-btn:hover{background:var(--bg4);border-color:var(--border2)}
+.tb-btn.on{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
+.tb-btn.primary{background:var(--accent-dim);border-color:rgba(57,208,255,.5);color:var(--accent);font-weight:600}
+.tb-btn.primary:hover{background:rgba(57,208,255,.22)}
+.mob-only{display:none}
+
+/* ============================ layout ============================ */
+main{position:relative;z-index:10;display:grid;grid-template-columns:266px minmax(0,1fr) 344px;height:calc(100vh - 54px)}
+aside{background:var(--bg2);min-width:0;display:flex;flex-direction:column}
+#sidebar{border-right:1px solid var(--border)}
+#detail{border-left:1px solid var(--border)}
+.pane-head{padding:12px 14px 8px;font-size:10.5px;letter-spacing:.18em;color:var(--text3);text-transform:uppercase;
+  display:flex;justify-content:space-between;align-items:center;flex:none}
+.pane-body{overflow-y:auto;overflow-x:hidden;padding:0 12px 22px;flex:1;scrollbar-width:thin}
+.pane-body::-webkit-scrollbar{width:9px}
+.pane-body::-webkit-scrollbar-thumb{background:#22303f;border-radius:6px;border:2px solid var(--bg2)}
+.pane-body::-webkit-scrollbar-track{background:transparent}
+
+/* ============================ system rows ============================ */
+.sys-row{padding:9px 10px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:7px;background:var(--bg3);
+  transition:border-color .15s}
+.sys-row.off{opacity:.45}
+.sys-top{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.sys-dot{width:11px;height:11px;border-radius:3px;flex:none;box-shadow:0 0 9px currentColor}
+.sys-name{flex:1;font-size:13px;font-weight:600;letter-spacing:.02em;min-width:0}
+.sys-count{font-family:var(--mono);font-size:10.5px;color:var(--text3);background:var(--bg);padding:2px 6px;border-radius:20px;
+  border:1px solid var(--border);flex:none}
+.sys-eye{font-size:11px;color:var(--text3);width:16px;text-align:center;flex:none}
+.sys-desc{font-size:11px;color:var(--text3);margin:5px 0 0;line-height:1.45}
+.sys-slider{display:flex;align-items:center;gap:8px;margin-top:8px}
+.sys-slider label{font-size:10px;color:var(--text3);font-family:var(--mono);width:26px;flex:none}
+.sys-slider input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:3px;background:var(--border2);border-radius:2px;outline:none}
+.sys-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--accent);cursor:pointer;border:2px solid var(--bg2)}
+.sys-slider input[type=range]::-moz-range-thumb{width:11px;height:11px;border:2px solid var(--bg2);border-radius:50%;background:var(--accent);cursor:pointer}
+
+/* ============================ search + regions ============================ */
+.search-wrap{position:relative;margin:4px 0 10px}
+.search-wrap input{width:100%;padding:9px 10px 9px 30px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);font-size:13px;outline:none}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-wrap .ico{position:absolute;left:10px;top:9px;color:var(--text3);font-size:12px;pointer-events:none}
+#results{margin:-4px 0 10px;max-height:230px;overflow-y:auto}
+.res{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px}
+.res:hover{background:var(--bg3)}
+.res .rd{width:8px;height:8px;border-radius:2px;flex:none}
+.res .rs{font-size:10px;color:var(--text3);font-family:var(--mono);flex:none}
+.res-none{font-size:11.5px;color:var(--text3);padding:6px 8px}
+.region-head{margin:10px 0 4px;font-size:10px;letter-spacing:.16em;color:var(--text3);text-transform:uppercase}
+.region-list{display:flex;flex-wrap:wrap;gap:4px}
+.region-chip{font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:20px;background:var(--bg3);color:var(--text2)}
+.region-chip:hover{border-color:var(--accent);color:var(--accent)}
+.side-note{font-size:11px;color:var(--text3);line-height:1.5;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--border)}
+.side-note b{color:var(--text2);font-weight:600}
+
+/* ============================ stage ============================ */
+#stage{position:relative;background:
+  linear-gradient(rgba(10,16,24,.96),rgba(6,9,14,.98)),
+  repeating-linear-gradient(0deg,transparent 0 39px,rgba(57,208,255,.05) 39px 40px),
+  repeating-linear-gradient(90deg,transparent 0 39px,rgba(57,208,255,.05) 39px 40px);
+  overflow:hidden;touch-action:none}
+#atlas{display:block;width:100%;height:100%;cursor:grab}
+#atlas.grabbing{cursor:grabbing}
+#atlas.dragging .part{cursor:grabbing}
+.part{cursor:grab;transition:opacity .18s}
+.part path{pointer-events:none}
+.part path.hit{pointer-events:all;fill:none;stroke:none;stroke-width:17;stroke-linejoin:round;stroke-linecap:round}
+.part.hl path:not(.hit){filter:brightness(1.42) saturate(1.1)}
+.part.sel path:not(.hit):not(.r-line):not(.r-skin){fill:var(--hl);fill-opacity:.94;stroke:rgba(255,255,255,.5);stroke-width:1.3}
+.part.sel path.r-line{stroke:var(--hl);opacity:1;stroke-width:1.5}
+.part.sel path.r-skin{stroke:var(--hl);fill:var(--hl);fill-opacity:.12}
+.part.sel{filter:drop-shadow(0 0 7px var(--hl))}
+.part.dimmed{opacity:.16}
+.part.ok path:not(.hit):not(.r-line){fill:var(--ok) !important;animation:pulse .5s ease-out 2}
+.part.bad path:not(.hit):not(.r-line){fill:var(--bad) !important;animation:shake .3s ease-in-out 2}
+.part.missed path:not(.hit):not(.r-line){fill:var(--warn) !important;animation:pulse .5s ease-out 2}
+@keyframes pulse{0%,100%{filter:none}50%{filter:brightness(1.9)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+.r-bone{fill:var(--sk);stroke:var(--sk-ed);stroke-width:1}
+.r-cartilage{fill:#cfe6ef;stroke:#8ba6b6;stroke-width:.8}
+.r-cavity{fill:#070c12;stroke:var(--sk-ed);stroke-width:.8}
+.r-line{fill:none;stroke:var(--sk-ed);stroke-width:1;opacity:.75}
+.r-skin{fill:rgba(96,140,180,.07);stroke:rgba(126,186,232,.34);stroke-width:1.2}
+.r-muscle{fill:var(--mu);stroke:var(--mu-ed);stroke-width:.8}
+.r-muscle2{fill:#8c3a34;stroke:#5e211c;stroke-width:.8}
+.r-tendon{fill:#d3c6af;stroke:#9d8d74;stroke-width:.6}
+.r-artery{fill:var(--ar);stroke:var(--ar-ed);stroke-width:.7}
+.r-vein{fill:var(--ve);stroke:var(--ve-ed);stroke-width:.7}
+.r-nerve{fill:var(--nv);stroke:var(--nv-ed);stroke-width:.6}
+.r-brain{fill:var(--o-brain);stroke:#8d6a1f;stroke-width:.7}
+.r-liver{fill:var(--o-liver);stroke:#4e2219;stroke-width:.8}
+.r-lung{fill:var(--o-lung);stroke:#7d434c;stroke-width:.8}
+.r-heart{fill:var(--o-heart);stroke:#6d1c17;stroke-width:.8}
+.r-kidney{fill:var(--o-kidney);stroke:#57291e;stroke-width:.8}
+.r-gut{fill:var(--o-gut);stroke:#8a6440;stroke-width:.7}
+.r-colon{fill:var(--o-colon);stroke:#7a5436;stroke-width:.7}
+.r-stomach{fill:var(--o-stomach);stroke:#7a4437;stroke-width:.8}
+.r-spleen{fill:var(--o-spleen);stroke:#431f36;stroke-width:.8}
+.r-panc{fill:var(--o-panc);stroke:#8a7444;stroke-width:.7}
+.r-bladder{fill:var(--o-bladder);stroke:#87703a;stroke-width:.8}
+.r-gland{fill:var(--o-gland);stroke:#6b3c31;stroke-width:.8}
+.r-eye{fill:var(--o-eye);stroke:#4c7f9c;stroke-width:.8}
+.r-tra{fill:var(--o-tra);stroke:#8fa9b8;stroke-width:.7}
+.r-adre{fill:var(--o-adre);stroke:#8a6a24;stroke-width:.7}
+.r-gall{fill:var(--o-gall);stroke:#2f4a24;stroke-width:.7}
+.r-void{fill:#0a0f16;stroke:none}
+
+/* labels */
+.leader{stroke:var(--accent);stroke-width:.9;fill:none;opacity:.85}
+.lbl{fill:var(--text);font-family:var(--mono);font-size:9.5px;letter-spacing:.02em;paint-order:stroke;
+  stroke:rgba(4,8,12,.9);stroke-width:3.4;stroke-linejoin:round}
+.lbl-sub{fill:var(--text3);font-family:var(--mono);font-size:7.6px;paint-order:stroke;stroke:rgba(4,8,12,.9);stroke-width:3}
+
+/* tooltip */
+#tooltip{position:absolute;pointer-events:none;z-index:30;padding:5px 9px;border-radius:var(--radius-sm);
+  background:rgba(9,15,22,.95);border:1px solid var(--border2);font-size:12px;white-space:nowrap;
+  box-shadow:0 6px 22px rgba(0,0,0,.5);opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s}
+#tooltip.on{opacity:1;transform:translateY(0)}
+#tooltip .tt-sys{font-size:9.5px;color:var(--text3);font-family:var(--mono);letter-spacing:.08em;display:block}
+
+/* hud + zoom */
+#hud{position:absolute;left:14px;bottom:12px;z-index:12;font-size:11px;color:var(--text3);font-family:var(--mono);
+  display:flex;gap:14px;flex-wrap:wrap;pointer-events:none;max-width:60%}
+#hud b{color:var(--text2);font-weight:600}
+#zoomCtl{position:absolute;right:12px;bottom:12px;z-index:12;display:flex;flex-direction:column;gap:5px}
+#zoomCtl button{width:32px;height:32px;border-radius:var(--radius-sm);background:rgba(13,20,28,.9);border:1px solid var(--border);
+  font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center}
+#zoomCtl button:hover{border-color:var(--accent);color:var(--accent)}
+#legend{position:absolute;left:14px;top:12px;z-index:12;display:flex;gap:12px;flex-wrap:wrap;background:rgba(8,13,19,.72);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:10.5px;color:var(--text2);
+  font-family:var(--mono);backdrop-filter:blur(6px);max-width:calc(100% - 28px)}
+#legend span{display:flex;align-items:center;gap:5px}
+#legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* quiz */
+#quizbar{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:14;display:flex;align-items:center;gap:14px;
+  background:rgba(9,15,22,.95);border:1px solid var(--border2);border-radius:28px;padding:9px 16px;
+  box-shadow:0 10px 34px rgba(0,0,0,.55);max-width:calc(100% - 24px)}
+#quizbar .q-prompt{font-size:13px}
+#quizbar .q-prompt b{color:var(--accent)}
+#quizbar .q-score{font-family:var(--mono);font-size:12px;color:var(--text2);white-space:nowrap}
+#quizbar .q-feed{font-size:12px;font-family:var(--mono);white-space:nowrap;min-width:74px}
+#quizbar .q-feed.ok{color:var(--ok)}
+#quizbar .q-feed.bad{color:var(--bad)}
+#quizbar button{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 11px;font-size:12px}
+
+/* ============================ detail pane ============================ */
+#detail .empty{padding:26px 18px;color:var(--text3);font-size:12.5px;line-height:1.6}
+#detail .empty h3{margin:0 0 10px;font-size:13px;color:var(--text2);letter-spacing:.14em}
+#detail .empty ul{margin:10px 0 0;padding-left:18px}
+#detail .empty li{margin-bottom:7px}
+.d-head{padding:14px 16px 12px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.d-head::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--hl)}
+.d-sys{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);font-family:var(--mono)}
+.d-name{margin:6px 0 3px;font-size:20px;line-height:1.15;font-weight:600}
+.d-latin{font-size:12px;color:var(--text2);font-style:italic}
+.d-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.d-tag{font-size:10px;font-family:var(--mono);padding:3px 7px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);
+  color:var(--text2)}
+.d-tag.hl{color:var(--bg);background:var(--hl);border-color:var(--hl);font-weight:600}
+.d-actions{display:flex;gap:6px;margin-top:12px}
+.d-actions button{flex:1;padding:8px;border-radius:var(--radius-sm);background:var(--bg3);border:1px solid var(--border);font-size:12px}
+.d-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.d-body{padding:14px 16px 24px;overflow-y:auto;flex:1;scrollbar-width:thin}
+.d-sec{margin-bottom:18px}
+.d-sec h4{margin:0 0 7px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text3)}
+.d-sec p{margin:0;font-size:13.5px;line-height:1.62;color:#cfe0ee}
+.d-facts{margin:0;padding:0;list-style:none}
+.d-facts li{position:relative;padding-left:16px;margin-bottom:8px;font-size:12.8px;line-height:1.55;color:var(--text2)}
+.d-facts li::before{content:'';position:absolute;left:2px;top:6px;width:5px;height:5px;border-radius:50%;background:var(--hl)}
+.d-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.d-stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px}
+.d-stat .k{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3)}
+.d-stat .v{font-size:13px;font-family:var(--mono);margin-top:3px;color:var(--text)}
+.d-conn{display:flex;flex-wrap:wrap;gap:5px}
+.d-conn button{font-size:11.5px;padding:4px 9px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.d-conn button:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ============================ tour + toast ============================ */
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);z-index:60;padding:10px 18px;border-radius:24px;
+  background:rgba(10,16,23,.97);border:1px solid var(--border2);font-size:13px;opacity:0;transition:opacity .2s,transform .2s;
+  pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ============================ responsive ============================ */
+@media(max-width:1240px){
+  main{grid-template-columns:242px minmax(0,1fr)}
+  #detail{position:fixed;right:0;top:54px;bottom:0;width:min(360px,92vw);z-index:40;transform:translateX(103%);
+    transition:transform .26s cubic-bezier(.4,0,.2,1);box-shadow:-14px 0 40px rgba(0,0,0,.5)}
+  #detail.open{transform:none}
+  .mob-only{display:inline-flex}
+}
+@media(max-width:760px){
+  main{grid-template-columns:minmax(0,1fr)}
+  #sidebar{position:fixed;left:0;top:54px;bottom:0;width:min(286px,88vw);z-index:40;transform:translateX(-104%);
+    transition:transform .26s cubic-bezier(.4,0,.2,1);box-shadow:14px 0 40px rgba(0,0,0,.5)}
+  #sidebar.open{transform:none}
+  .brand .sub{display:none}
+  .brand h1{font-size:13px;letter-spacing:.16em}
+  #legend{font-size:9.5px;gap:8px;padding:5px 8px}
+  #hud{display:none}
+  .tb-btn{padding:7px 9px;font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">&#9670;</span>
+    <h1>HUMAN ATLAS</h1>
+    <span class="ver" id="verTag">v1.0</span>
+    <span class="sub">&middot; drag any part &middot; click for detail</span>
+  </div>
+  <div class="top-actions">
+    <button id="btnSide" class="tb-btn mob-only" aria-expanded="false">Systems</button>
+    <button id="btnExplode" class="tb-btn">Explode</button>
+    <button id="btnReset" class="tb-btn">Reset parts</button>
+    <button id="btnXray" class="tb-btn">X-ray</button>
+    <button id="btnSkin" class="tb-btn on">Outline</button>
+    <button id="btnQuiz" class="tb-btn primary">Quiz mode</button>
+    <button id="btnInfo" class="tb-btn mob-only" aria-expanded="false">Info</button>
+  </div>
+</header>
+
+<main>
+  <aside id="sidebar">
+    <div class="pane-head"><span>Systems</span><span id="totTag">0 parts</span></div>
+    <div class="pane-body">
+      <div id="sysList"></div>
+      <div class="search-wrap">
+        <span class="ico">&#9906;</span>
+        <input id="search" type="search" placeholder="Search 130+ structures&hellip;" autocomplete="off" spellcheck="false">
+      </div>
+      <div id="results"></div>
+      <div class="region-head">Browse by region</div>
+      <div class="region-list" id="regionList"></div>
+      <p class="side-note">
+        <b>Drag</b> any structure to pull it out of the body &middot; <b>Click</b> it for full detail &middot;
+        <b>Scroll</b> to zoom, drag empty space to pan &middot; <b>Shift-click</b> to hide everything but that system.<br><br>
+        Structures are stacked, so one spot can hold several: <b>click the same place again</b> to walk down
+        to the organ underneath the muscle and bone over it.<br><br>
+        Lateral labels are the <b>patient's</b> side: the figure's left of screen is the patient's right.
+      </p>
+    </div>
+  </aside>
+
+  <section id="stage">
+    <div id="legend"></div>
+    <svg id="atlas" viewBox="0 0 360 1000" preserveAspectRatio="xMidYMid meet" role="img"
+         aria-label="Interactive human anatomy figure"></svg>
+    <div id="tooltip"></div>
+    <div id="quizbar" class="hidden">
+      <span class="q-score" id="qScore">0 / 0</span>
+      <span class="q-prompt" id="qPrompt">Find the <b>&mdash;</b></span>
+      <span class="q-feed" id="qFeed"></span>
+      <button id="qSkip">Skip</button>
+      <button id="qStop">Exit</button>
+    </div>
+    <div id="hud"></div>
+    <div id="zoomCtl">
+      <button id="zIn" title="Zoom in">+</button>
+      <button id="zOut" title="Zoom out">&minus;</button>
+      <button id="zFit" title="Fit">&#9633;</button>
+    </div>
+  </section>
+
+  <aside id="detail">
+    <div class="pane-head"><span id="dPaneTitle">Structure</span><span id="dIdx" class="ver"></span></div>
+    <div class="empty" id="dEmpty">
+      <h3>SELECT A STRUCTURE</h3>
+      Click any bone, muscle, vessel, nerve or organ in the figure to open its record: function, key facts and
+      measured figures.
+      <ul>
+        <li><b>Drag</b> a part to isolate it from the anatomy around it &mdash; the classic exploded view.</li>
+        <li><b>Explode</b> pulls every part of the figure away from the midline at once.</li>
+        <li><b>Quiz mode</b> tests you: it names a structure, you click it on the figure.</li>
+        <li><b>X-ray</b> makes bones translucent so vessels and nerves inside them read through.</li>
+      </ul>
+    </div>
+    <div class="d-body hidden" id="dBody"></div>
+  </aside>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* CORE-START */

@@ -1,0 +1,13 @@
+{
+  "name": "human-atlas",
+  "version": "1.0.0",
+  "description": "Single-file interactive human anatomy atlas: skeletal, muscular, circulatory, nervous and organ systems with draggable structures and per-structure records.",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.js",
+    "verify": "node scripts/verify_app.js",
+    "verify:browser": "node scripts/browser_check.js",
+    "verify:all": "node scripts/build.js && node scripts/verify_app.js && node scripts/browser_check.js"
+  },
+  "license": "MIT"
+}
