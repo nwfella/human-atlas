@@ -30,7 +30,7 @@ function applyQuery() {
   }
   if (params.xray) { st.xray = true; syncToggles(); renderSvg(); }
   if (params.skin === '0') { st.skin = false; syncToggles(); renderSvg(); }
-  if (params.explode) { st.off = Atlas.explodeOffsets(34); st.exploded = true; renderSvg(); renderHud(); }
+  if (params.explode) { st.off = Atlas.explodeOffsets(50); st.exploded = true; renderSvg(); renderHud(); }
   if (params.pick) { st.on[Atlas.get(params.pick).sys] = true; renderSvg(); selectPart(params.pick, { focus: !!params.focus }); }
   if (params.zoom) zoomAt(+params.zoom, { x: Atlas.VIEW.w / 2, y: Atlas.VIEW.h / 2 });
   if (params.selftest) selftest();
