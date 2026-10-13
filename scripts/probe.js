@@ -15,7 +15,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   for (let i = 0; i < 60; i++) {
     try {
       const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-      target = list.find(t => t.type === 'page' && t.url.indexOf('http') !== 0);
+      target = list.find(t => t.type === 'page' && !/^(devtools|chrome)/.test(t.url));
       if (target) break;
     } catch (_) {}
     await sleep(300);
@@ -51,7 +51,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       sysRows: document.querySelectorAll('.sys-row').length,
       rendered: document.querySelectorAll('.part').length,
       worldChildren: (document.getElementById('world') || {}).childElementCount,
-      svgLen: document.getElementById('world') ? document.getElementById('world').innerHTML.length : -1
+      svgLen: document.getElementById('world') ? document.getElementById('world').innerHTML.length : -1,
+      bodyHead: document.body.innerHTML.slice(0, 160).replace(/\s+/g, ' '),
+      frames: document.querySelectorAll('iframe').length
     })`
   });
   console.log(r.result.value);

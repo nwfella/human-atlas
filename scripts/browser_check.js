@@ -270,6 +270,27 @@ function eq(name, got, want) { ok(name, got === want, 'got ' + JSON.stringify(go
   shot = await send('Page.captureScreenshot', { format: 'png' });
   fs.writeFileSync(path.join(shotsDir, 'selftest-nervous.png'), Buffer.from(shot.data, 'base64'));
 
+  /* ---- the artifact's own in-page gate, which travels with the file ---- */
+  await send('Page.navigate', { url: URL + (URL.indexOf('?') > -1 ? '&' : '?') + 'selftest=1' });
+  let stTitle = '';
+  for (let i = 0; i < 80 && !/^SELFTEST/.test(stTitle); i++) {
+    await sleep(200);
+    stTitle = await ev('document.title');
+  }
+  ok('in-page ?selftest=1 reports PASS', /^SELFTEST PASS \(\d+ checks\)$/.test(stTitle), stTitle);
+  ok('the in-page gate runs a real number of checks',
+    parseInt((stTitle.match(/\((\d+) checks\)/) || [0, 0])[1], 10) >= 30, stTitle);
+  await send('Page.navigate', { url: URL + (URL.indexOf('?') > -1 ? '&' : '?') + 'autoplay=1' });
+  let autoTitle = '';
+  for (let i = 0; i < 80 && !/^AUTOPLAY/.test(autoTitle); i++) {
+    await sleep(200);
+    autoTitle = await ev('document.title');
+  }
+  ok('in-page ?autoplay=1 drives the whole app', /^AUTOPLAY .*quiz=\d+\/\d+/.test(autoTitle), autoTitle.slice(0, 200));
+  ok('autoplay reaches every system and the export',
+    /exploded=\d+/.test(autoTitle) && /exportBytes=\d{5,}/.test(autoTitle) && /dragSurvived=true/.test(autoTitle),
+    autoTitle.slice(0, 200));
+
   /* ---- no uncaught errors anywhere in the session ---- */
   eq('no uncaught exceptions or console errors', errors.length, 0, errors.slice(0, 4).join(' | '));
 
